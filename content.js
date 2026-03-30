@@ -14,8 +14,6 @@
   var STATE_REVIEWING = 'REVIEWING'; // modal open
 
   var state = STATE_IDLE;
-  var lastFindings = [];
-  var lastPastedText = '';
   var isRedacting = false;
   var totalFindings = 0;
 
@@ -121,8 +119,6 @@
     removeScanIcon();
 
     var result = Detector.scan(text);
-    lastPastedText = text;
-
     if (result.safe) {
       handleSafe(text);
     } else {
@@ -162,7 +158,6 @@
 
   function handleUnsafe(text, result) {
     state = STATE_UNSAFE;
-    lastFindings = result.findings;
     totalFindings = result.findings.length;
 
     var textarea = findTextarea();
@@ -233,7 +228,7 @@
     btn.id = 'pps-review-btn';
     btn.innerHTML = ICONS.shieldAlert + ' <span>Review Sensitive Data</span>';
     btn.addEventListener('click', function () {
-      openReviewModal(text, lastFindings);
+      openDeepScanModal(text);
     });
 
     document.body.appendChild(btn);
@@ -399,7 +394,7 @@
 
     // ── Run teleprompter, then scan ──
     runTeleprompter(progressFill, function () {
-      var result = Detector.scan(text);
+      var result = Detector.deepScan(text);
 
       // Swap teleprompter for results
       m.body.removeChild(tpWrap);
@@ -433,7 +428,6 @@
         if (titleTextEl) titleTextEl.textContent = 'Sensitive Data Found';
         if (titleEl) titleEl.className = 'pps-modal-title pps-title-danger';
 
-        lastFindings = result.findings;
         totalFindings = result.findings.length;
         state = STATE_UNSAFE;
         blockSendButton();
@@ -477,21 +471,7 @@
     next();
   }
 
-  // ── Modal: Review (unsafe path — immediate findings) ──
-
-  function openReviewModal(text, findings) {
-    closeModal();
-    state = STATE_REVIEWING;
-
-    var m = buildModal('Sensitive Data Found', 'pps-title-danger');
-    document.body.appendChild(m.backdrop);
-    document.addEventListener('keydown', onModalEscape);
-
-    showFindingsUI(m.body, m.actions, text, findings);
-    m.actions.style.display = 'flex';
-  }
-
-  // ── Findings UI (shared between review modal and deep-scan modal) ──
+  // ── Findings UI ──
 
   function showFindingsUI(body, actions, text, findings) {
     // Preview with highlighted text
@@ -500,11 +480,10 @@
     preview.innerHTML = Detector.highlightHTML(text, findings);
     body.appendChild(preview);
 
-    // Summary
+    // Summary (lives in actions row, left side)
     var summary = document.createElement('div');
     summary.id = 'pps-modal-summary';
     renderModalSummary(summary, findings);
-    body.appendChild(summary);
 
     // Redact All button
     var redactBtn = document.createElement('button');
@@ -526,6 +505,7 @@
     });
 
     actions.innerHTML = '';
+    actions.appendChild(summary);
     actions.appendChild(redactBtn);
     actions.appendChild(sendBtn);
   }
@@ -604,10 +584,6 @@
 
   function finishModalRedaction(text, preview, summary, redactBtn, actions) {
     isRedacting = false;
-    lastPastedText = text;
-
-    var result = Detector.scan(text);
-    lastFindings = result.findings;
 
     preview.innerHTML = Detector.highlightRedactedHTML(text);
     renderModalSummary(summary, result.findings);
@@ -700,8 +676,6 @@
     if (textarea) textarea.classList.remove('pps-safe', 'pps-unsafe');
 
     state = STATE_IDLE;
-    lastFindings = [];
-    lastPastedText = '';
     isRedacting = false;
     totalFindings = 0;
   }

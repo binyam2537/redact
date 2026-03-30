@@ -339,6 +339,21 @@ div.pps-unsafe[contenteditable] {
   flex-direction: column;
   gap: 16px;
   padding-top: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pps-sep) transparent;
+}
+
+#pps-modal-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+#pps-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#pps-modal-body::-webkit-scrollbar-thumb {
+  background: var(--pps-sep);
+  border-radius: 2px;
 }
 
 /* ── Teleprompter animation ── */
@@ -539,11 +554,20 @@ div.pps-unsafe[contenteditable] {
 
 #pps-modal-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
-  padding: 14px 20px;
+  padding: 12px 20px;
   border-top: 1px solid var(--pps-sep);
-  justify-content: flex-end;
   flex-shrink: 0;
+}
+
+/* Summary lives inside actions row, left side */
+#pps-modal-actions #pps-modal-summary {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .pps-btn {

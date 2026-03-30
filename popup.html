@@ -188,44 +188,6 @@
       margin-top: 3px;
     }
 
-    /* ── CTA button ── */
-    .btn-cta {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--surface);
-      border: 1px solid var(--sep);
-      border-radius: var(--r);
-      padding: 13px 15px;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text);
-      width: 100%;
-      /* box-shadow: var(--sh); */
-      transition: background 0.15s;
-      text-align: left;
-    }
-
-    .btn-cta:hover {
-      background: var(--surf2);
-    }
-
-    .btn-cta .cta-label {
-      flex: 1;
-    }
-
-    .btn-cta .cta-left {
-      /* color: var(--accent); */
-      flex-shrink: 0;
-    }
-
-    .btn-cta .cta-right {
-      color: var(--text3);
-      flex-shrink: 0;
-    }
-
     /* ── Section card ── */
     .section {
       background: var(--surface);
@@ -250,12 +212,19 @@
 
     /* ── Pattern list ── */
     .pattern-list {
-      max-height: 168px;
+      min-height: 80px;
+      max-height: 300px;
       overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--sep) transparent;
     }
 
     .pattern-list::-webkit-scrollbar {
       width: 4px;
+    }
+
+    .pattern-list::-webkit-scrollbar-track {
+      background: transparent;
     }
 
     .pattern-list::-webkit-scrollbar-thumb {
@@ -320,22 +289,23 @@
     .pattern-add {
       display: flex;
       align-items: center;
-      gap: 7px;
-      padding: 9px 10px;
+      gap: 8px;
+      padding: 10px 12px;
       border-top: 1px solid var(--sep);
+      background: var(--bg);
     }
 
     .pattern-input {
       flex: 1;
-      background: var(--surf2);
-      border: 1px solid var(--sep);
-      border-radius: var(--r-sm);
-      padding: 7px 10px;
-      font-size: 13px;
+      background: var(--surface);
+      border: 1.5px solid var(--sep);
+      border-radius: var(--r-pill);
+      padding: 7px 13px;
+      font-size: 12.5px;
       color: var(--text);
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
       outline: none;
-      transition: border-color 0.15s;
+      transition: border-color 0.18s;
       min-width: 0;
     }
 
@@ -352,14 +322,15 @@
       background: var(--accent);
       color: #fff;
       border: none;
-      border-radius: var(--r-sm);
-      padding: 7px 14px;
-      font-size: 13px;
-      font-weight: 500;
+      border-radius: var(--r-pill);
+      padding: 7px 15px;
+      font-size: 12.5px;
+      font-weight: 600;
       cursor: pointer;
       font-family: inherit;
       transition: opacity 0.15s;
       flex-shrink: 0;
+      letter-spacing: 0.01em;
     }
 
     .btn-add:hover {
@@ -390,55 +361,44 @@
       gap: 10px;
     }
 
-    /* Editor */
-    .editor-wrap {
+    /* Textarea */
+    #check-textarea {
+      min-height: 180px;
+      background: var(--surface);
       border: 1.5px solid var(--sep);
       border-radius: var(--r);
-      overflow: hidden;
-      transition: border-color 0.25s;
-      background: var(--surface);
-      /* box-shadow: var(--sh); */
-      display: flex;
-      flex-direction: column;
-    }
-
-    .editor-wrap.is-safe {
-      border-color: var(--success);
-    }
-
-    .editor-wrap.is-unsafe {
-      border-color: var(--danger);
-    }
-
-    #check-textarea {
-      min-height: 196px;
-      background: transparent;
-      border: none;
       outline: none;
-      padding: 13px 14px;
+      padding: 12px 13px;
       font-size: 13px;
       line-height: 1.7;
       color: var(--text);
       font-family: -apple-system, sans-serif;
       resize: none;
       width: 100%;
+      transition: border-color 0.25s;
+      scrollbar-width: thin;
+      scrollbar-color: var(--sep) transparent;
+    }
+
+    #check-textarea::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #check-textarea::-webkit-scrollbar-thumb {
+      background: var(--sep);
+      border-radius: 2px;
     }
 
     #check-textarea::placeholder {
       color: var(--text3);
     }
 
-    #check-preview {
-      min-height: 196px;
-      padding: 13px 14px;
-      font-size: 13px;
-      line-height: 1.7;
-      color: var(--text);
-      font-family: -apple-system, sans-serif;
-      white-space: pre-wrap;
-      word-break: break-word;
-      overflow-y: auto;
-      cursor: text;
+    #check-textarea.is-safe {
+      border-color: var(--success);
+    }
+
+    #check-textarea.is-unsafe {
+      border-color: var(--danger);
     }
 
     /* Scan stage indicator */
@@ -726,6 +686,13 @@
         </svg>
         Privacy Shield
       </div>
+      <button class="icon-btn" id="btn-check-text" title="Check text for PII" aria-label="Check text for PII">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+      </button>
       <button class="icon-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
         <svg id="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" style="display:none">
@@ -777,20 +744,6 @@
         </div>
       </div>
 
-      <!-- Check Text CTA -->
-      <button class="btn-cta" id="btn-check-text">
-        <svg class="cta-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-        <span class="cta-label">Check Text for PII</span>
-        <svg class="cta-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m9 18 6-6-6-6" />
-        </svg>
-      </button>
-
     </div>
 
     <div class="panel-footer">v1.1 · Active on ChatGPT · Gemini · Claude</div>
@@ -815,11 +768,8 @@
 
     <div class="checker-content">
 
-      <div class="editor-wrap" id="editor-wrap">
-        <textarea id="check-textarea" placeholder="Paste or type text to scan for sensitive data..."
-          spellcheck="false"></textarea>
-        <div id="check-preview" style="display:none"></div>
-      </div>
+      <textarea id="check-textarea" placeholder="Paste or type text to scan for sensitive data..."
+        spellcheck="false"></textarea>
 
       <div class="scan-stage" id="scan-stage" style="display:none">
         <div class="stage-spinner" id="stage-spinner"></div>

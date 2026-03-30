@@ -472,6 +472,119 @@
     };
   }
 
+  // ── Broad patterns for deep scan (wider net, lower precision) ──
+
+  var broadPatterns = [
+    // Bearer / Authorization tokens in headers
+    {
+      name: 'bearer_token',
+      category: 'Bearer Token',
+      severity: 2,
+      regex: /\bBearer\s+([A-Za-z0-9_\-\.=+\/]{20,})/gi,
+      validate: null
+    },
+    // Broad ALL_CAPS ENV VAR = secret pattern
+    {
+      name: 'env_var_secret',
+      category: 'Environment Secret',
+      severity: 2,
+      regex: /\b([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASS(?:WORD)?|CREDENTIAL|AUTH|PWD)[A-Z0-9_]*)\s*=\s*["']?([^\s"'`\n]{10,})["']?/g,
+      validate: function (m) {
+        var val = m[2] || '';
+        if (/^(your|my|example|test|placeholder|changeme|xxx|true|false|null|undefined)/i.test(val)) return false;
+        return true;
+      }
+    },
+    // High-entropy strings 40+ chars (possible vendor-agnostic tokens)
+    {
+      name: 'high_entropy_token',
+      category: 'Possible Token/Secret',
+      severity: 1,
+      regex: /\b[A-Za-z0-9+\/=_\-]{40,}\b/g,
+      validate: function (m) {
+        var s = m[0];
+        if (/^[A-Z_]{10,}$/.test(s)) return false; // all-caps constant
+        if (/^[0-9]+$/.test(s)) return false; // all digits
+        // Skip plain hex hashes (md5/sha1/sha256 lengths)
+        if (/^[a-f0-9]+$/i.test(s) && (s.length === 32 || s.length === 40 || s.length === 64)) return false;
+        return entropy(s) > 4.8;
+      }
+    },
+    // Date of birth formats (MM/DD/YYYY, DD-MM-YYYY, etc.)
+    {
+      name: 'date_dob',
+      category: 'Date (potential DOB)',
+      severity: 1,
+      regex: /\b(?:0?[1-9]|1[0-2])[\/\-\.](?:0?[1-9]|[12]\d|3[01])[\/\-\.](?:19|20)\d{2}\b/g,
+      validate: null
+    }
+  ];
+
+  // ── Deep scan: runs standard scan + broad patterns ──
+
+  function deepScan(text) {
+    if (!text || typeof text !== 'string') {
+      return { safe: true, findings: [], maxSeverity: 0 };
+    }
+
+    // Standard precise scan first
+    var baseResult = scan(text);
+
+    // Build covered ranges to skip duplicates
+    var baseRanges = baseResult.findings.map(function (f) { return { start: f.start, end: f.end }; });
+
+    // Run broad patterns
+    var broadFindings = [];
+    for (var p = 0; p < broadPatterns.length; p++) {
+      var pattern = broadPatterns[p];
+      var regex = pattern.regex;
+      regex.lastIndex = 0;
+
+      var match;
+      while ((match = regex.exec(text)) !== null) {
+        // Skip if already covered by a base finding
+        var covered = false;
+        for (var r = 0; r < baseRanges.length; r++) {
+          if (match.index >= baseRanges[r].start && match.index + match[0].length <= baseRanges[r].end) {
+            covered = true;
+            break;
+          }
+        }
+        if (covered) continue;
+
+        var valid = true;
+        if (pattern.validate) {
+          valid = pattern.validate(match);
+        }
+
+        if (valid) {
+          broadFindings.push({
+            category: pattern.category,
+            name: pattern.name,
+            severity: pattern.severity,
+            text: match[0],
+            start: match.index,
+            end: match.index + match[0].length,
+            isCustom: false
+          });
+        }
+      }
+    }
+
+    var combined = deduplicate(baseResult.findings.concat(broadFindings));
+
+    var maxSeverity = 0;
+    for (var i = 0; i < combined.length; i++) {
+      if (combined[i].severity > maxSeverity) maxSeverity = combined[i].severity;
+    }
+
+    return {
+      safe: combined.length === 0,
+      findings: combined,
+      maxSeverity: maxSeverity
+    };
+  }
+
   // ── Add/replace custom user patterns ──
   // Each item: { pattern: "string or /regex/flags", label: "display name" }
 
@@ -609,6 +722,7 @@
 
   window.PromptPrivacyDetector = {
     scan: scan,
+    deepScan: deepScan,
     redact: redact,
     redactOne: redactOne,
     highlightHTML: highlightHTML,

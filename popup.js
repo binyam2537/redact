@@ -37,9 +37,7 @@
   var btnAddPattern = document.getElementById('btn-add-pattern');
 
   // ── Elements — Checker panel ──
-  var editorWrap = document.getElementById('editor-wrap');
   var checkTextarea = document.getElementById('check-textarea');
-  var checkPreview = document.getElementById('check-preview');
   var scanStage = document.getElementById('scan-stage');
   var stageLabel = document.getElementById('stage-label');
   var checkSummary = document.getElementById('check-summary');
@@ -91,9 +89,7 @@
 
   function resetChecker() {
     checkTextarea.value = '';
-    checkPreview.style.display = 'none';
-    checkTextarea.style.display = 'block';
-    editorWrap.className = 'editor-wrap';
+    checkTextarea.className = '';
     scanStage.style.display = 'none';
     checkSummary.style.display = 'none';
     checkSummary.innerHTML = '';
@@ -211,7 +207,7 @@
     if (isScanRunning || isRedacting) return;
     var text = checkTextarea.value.trim();
     if (!text) {
-      editorWrap.className = 'editor-wrap';
+      checkTextarea.className = '';
       checkSummary.style.display = 'none';
       btnRedact.style.display = 'none';
       lastResult = null;
@@ -229,16 +225,15 @@
     totalFindings = result.findings.length;
 
     checkSummary.style.display = 'none';
-    editorWrap.className = 'editor-wrap';
+    checkTextarea.className = '';
 
     if (result.safe) {
-      editorWrap.className = 'editor-wrap is-safe';
+      checkTextarea.className = 'is-safe';
       checkSummary.innerHTML = buildSafeTag('Looks clean — click Scan for deep analysis');
       checkSummary.style.display = 'flex';
       btnRedact.style.display = 'none';
     } else {
-      editorWrap.className = 'editor-wrap is-unsafe';
-      showPreview(Detector.highlightHTML(text, result.findings));
+      checkTextarea.className = 'is-unsafe';
       renderSummaryTags(result.findings);
       checkSummary.style.display = 'flex';
       btnRedact.style.display = 'flex';
@@ -251,9 +246,7 @@
 
   btnScan.addEventListener('click', function () {
     if (isScanRunning || isRedacting) return;
-    var text = checkTextarea.style.display !== 'none'
-      ? checkTextarea.value.trim()
-      : lastText;
+    var text = checkTextarea.value.trim() || lastText;
     if (!text) return;
     lastText = text;
     runFullScan(text);
@@ -263,10 +256,7 @@
     isScanRunning = true;
     btnScan.disabled = true;
     btnRedact.style.display = 'none';
-    editorWrap.className = 'editor-wrap';
-
-    // Restore textarea if showing preview
-    showEditor();
+    checkTextarea.className = '';
     checkSummary.style.display = 'none';
 
     // Show stage indicator
@@ -296,19 +286,18 @@
     document.getElementById('stage-spinner').style.display = 'block';
     btnScan.disabled = false;
 
-    var result = Detector.scan(text);
+    var result = Detector.deepScan(text);
     lastResult = result;
     lastText = text;
     totalFindings = result.findings.length;
 
     if (result.safe) {
-      editorWrap.className = 'editor-wrap is-safe';
+      checkTextarea.className = 'is-safe';
       checkSummary.innerHTML = buildSafeTag('No sensitive data found');
       checkSummary.style.display = 'flex';
       btnRedact.style.display = 'none';
     } else {
-      editorWrap.className = 'editor-wrap is-unsafe';
-      showPreview(Detector.highlightHTML(text, result.findings));
+      checkTextarea.className = 'is-unsafe';
       renderSummaryTags(result.findings);
       checkSummary.style.display = 'flex';
       btnRedact.style.display = 'flex';
@@ -344,18 +333,6 @@
       var f = findings[step];
       text = text.slice(0, f.start) + '[REDACTED_' + f.name.toUpperCase() + ']' + text.slice(f.end);
 
-      var tempResult = Detector.scan(text);
-      var html;
-      if (tempResult.findings.length > 0) {
-        html = Detector.highlightHTML(text, tempResult.findings);
-        html = html.replace(
-          /(\[REDACTED_[A-Z_]+\])(?!<\/mark>)/g,
-          '<mark class="pps-highlight pps-redacted pps-redacted-fresh">$1</mark>'
-        );
-      } else {
-        html = Detector.highlightRedactedHTML(text);
-      }
-      showPreview(html);
       checkTextarea.value = text;
       lastText = text;
 
@@ -371,7 +348,7 @@
     lastText = text;
     lastResult = Detector.scan(text);
 
-    showPreview(Detector.highlightRedactedHTML(text));
+    checkTextarea.value = text;
 
     // Update stats
     chrome.storage.local.get({ pps_total_redacted: 0 }, function (data) {
@@ -380,7 +357,7 @@
       statCount.textContent = newTotal.toLocaleString();
     });
 
-    editorWrap.className = 'editor-wrap is-safe';
+    checkTextarea.className = 'is-safe';
 
     btnRedact.disabled = false;
     btnRedact.classList.remove('btn-redacting');
@@ -395,27 +372,6 @@
   // ══════════════════════════════════════════════════════════════
   // HELPERS
   // ══════════════════════════════════════════════════════════════
-
-  function showPreview(html) {
-    checkPreview.innerHTML = html;
-    checkTextarea.style.display = 'none';
-    checkPreview.style.display = 'block';
-  }
-
-  function showEditor() {
-    checkPreview.style.display = 'none';
-    checkTextarea.style.display = 'block';
-  }
-
-  // Click preview to go back to editing
-  checkPreview.addEventListener('click', function () {
-    if (isRedacting) return;
-    showEditor();
-    editorWrap.className = 'editor-wrap';
-    checkSummary.style.display = 'none';
-    btnRedact.style.display = 'none';
-    lastResult = null;
-  });
 
   function renderSummaryTags(findings) {
     var counts = Detector.summarize(findings);
