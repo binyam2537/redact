@@ -12,7 +12,7 @@
     shieldCheck: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>',
     shieldAlert: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>',
     search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
-    eraser: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>',
+    paintbrush: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.622 17.897-10.68-2.913"/><path d="M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z"/><path d="M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15"/></svg>',
     lock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
     x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     eye: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>',
@@ -20,6 +20,9 @@
     sun: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
     moon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>'
   };
+
+  // ── Custom patterns (user-defined, loaded via addCustomPatterns) ──
+  var customPatterns = [];
 
   // ── Pattern definitions ──
   // Ordered: most specific first to win during deduplication
@@ -34,6 +37,32 @@
       validate: null
     },
 
+    // ─── AI / ML Provider Keys ───
+    {
+      name: 'openai_key',
+      category: 'OpenAI API Key',
+      severity: 3,
+      regex: /\bsk-(?:proj-|org-)?[A-Za-z0-9_-]{32,}\b/g,
+      validate: function (m) {
+        // Exclude obviously fake/test keys
+        return !/^sk-(proj-)?(?:test|fake|example|placeholder|your)/i.test(m[0]);
+      }
+    },
+    {
+      name: 'anthropic_key',
+      category: 'Anthropic API Key',
+      severity: 3,
+      regex: /\bsk-ant-(?:api\d{2}-)?[A-Za-z0-9_-]{80,}\b/g,
+      validate: null
+    },
+    {
+      name: 'huggingface_token',
+      category: 'HuggingFace Token',
+      severity: 3,
+      regex: /\bhf_[A-Za-z0-9]{34,}\b/g,
+      validate: null
+    },
+
     // ─── Database & Auth URIs ───
     {
       name: 'mongodb_uri',
@@ -41,7 +70,6 @@
       severity: 3,
       regex: /mongodb(?:\+srv)?:\/\/[^\s"'`<>]+/gi,
       validate: function (m) {
-        // Only flag if it contains credentials (user:pass@)
         return /@/.test(m[0]);
       }
     },
@@ -75,6 +103,13 @@
       category: 'AWS Secret Key',
       severity: 3,
       regex: /(?:aws[_-]?secret[_-]?(?:access[_-]?)?key|secret[_-]?access[_-]?key)[\s]*[:=][\s]*["']?([A-Za-z0-9\/+=]{40})["']?/gi,
+      validate: null
+    },
+    {
+      name: 'aws_arn',
+      category: 'AWS ARN',
+      severity: 2,
+      regex: /\barn:aws:[a-z0-9\-]+:[a-z0-9\-]*:\d{12}:[^\s"'`<>]{4,}/gi,
       validate: null
     },
     {
@@ -193,7 +228,6 @@
       regex: /(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token|private[_-]?key|client[_-]?secret|token|password|passwd|authorization)[\s]*[:=][\s]*["']?([A-Za-z0-9_\-\.\/+=]{20,})["']?/gi,
       validate: function (m) {
         var value = m[1] || m[0];
-        // Reject common placeholder values
         if (/^(your|my|the|test|example|placeholder|changeme|xxx)/i.test(value)) return false;
         return entropy(value) > 3.5;
       }
@@ -206,17 +240,13 @@
       severity: 3,
       regex: /\b(\d{3})-(\d{2})-(\d{4})\b/g,
       validate: function (m) {
-        var full = m[0];
-        // Reject if preceded by a date-like context or version-like context
         var area = m[1];
         var group = m[2];
         var serial = m[3];
-        // IRS rules
         if (area === '000' || area === '666') return false;
         if (parseInt(area, 10) >= 900) return false;
         if (group === '00') return false;
         if (serial === '0000') return false;
-        // Reject if it looks like a date (area is a year like 201, 202, etc)
         if (/^(?:19|20)\d$/.test(area)) return false;
         return true;
       }
@@ -234,13 +264,26 @@
       }
     },
     {
+      name: 'iban',
+      category: 'IBAN',
+      severity: 3,
+      regex: /\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7,26}\b/g,
+      validate: function (m) {
+        var iban = m[0].replace(/\s/g, '');
+        // Basic length check (15-34 chars)
+        if (iban.length < 15 || iban.length > 34) return false;
+        // Exclude all-uppercase words that aren't IBANs (e.g. acronyms)
+        if (/^[A-Z]+$/.test(iban)) return false;
+        return true;
+      }
+    },
+    {
       name: 'email',
       category: 'Email Address',
       severity: 2,
       regex: /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g,
       validate: function (m) {
         var email = m[0];
-        // Reject common non-PII domains
         if (/@(example|test|localhost|invalid)\./i.test(email)) return false;
         return true;
       }
@@ -249,25 +292,18 @@
       name: 'phone',
       category: 'Phone Number',
       severity: 2,
-      // Strict: requires country code, parentheses, or explicit phone-like separators
       regex: /(?:(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)[-.\s]?\d{3}[-.\s]\d{4}|\+\d{1,3}[-.\s]\d{3}[-.\s]\d{3}[-.\s]\d{4})\b/g,
       validate: function (m) {
-        var raw = m[0];
-        var digits = raw.replace(/\D/g, '');
+        var digits = m[0].replace(/\D/g, '');
         if (digits.length < 10 || digits.length > 15) return false;
         if (/^(\d)\1+$/.test(digits)) return false;
-        // Reject ISO 8601 timestamps — if preceded by T or followed by Z/+/- in a timestamp-like pattern
-        // This is checked in context during scan
         return true;
       },
       contextReject: function (text, matchIndex, matchStr) {
-        // Reject if this looks like part of a timestamp or UUID
         var before = text.slice(Math.max(0, matchIndex - 5), matchIndex);
         var after = text.slice(matchIndex + matchStr.length, matchIndex + matchStr.length + 5);
-        // Timestamp patterns: ...T12:34:56... or ...2024-01-15...
         if (/[T:]$/.test(before.trim())) return true;
         if (/^[Z:T+]/.test(after.trim())) return true;
-        // UUID-like: hex blocks separated by dashes
         var surrounding = text.slice(Math.max(0, matchIndex - 20), matchIndex + matchStr.length + 20);
         if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(surrounding)) return true;
         return false;
@@ -281,14 +317,10 @@
       severity: 1,
       regex: /\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?::\d{1,5})?\b/g,
       validate: function (m) {
-        var raw = m[0];
-        var ip = raw.split(':')[0];
-        // Exclude loopback, broadcast, and documentation ranges
+        var ip = m[0].split(':')[0];
         if (ip === '127.0.0.1' || ip === '0.0.0.0' || ip === '255.255.255.255') return false;
-        // Exclude version-like patterns (e.g. 1.2.3.4 where it looks like semver)
         if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
           var parts = ip.split('.');
-          // If all octets are small and it could be a version number, skip
           if (parts.every(function (p) { return parseInt(p, 10) < 20; })) return false;
         }
         return true;
@@ -301,7 +333,6 @@
       regex: /\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,7}:\b|\b(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}\b|\b::(?:[fF]{4}:)?(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b|\b(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}\b/g,
       validate: function (m) {
         var addr = m[0].toLowerCase();
-        // Exclude loopback
         if (addr === '::1' || addr === '0000:0000:0000:0000:0000:0000:0000:0001') return false;
         return true;
       }
@@ -390,9 +421,10 @@
     }
 
     var findings = [];
+    var allPatterns = patterns.concat(customPatterns);
 
-    for (var p = 0; p < patterns.length; p++) {
-      var pattern = patterns[p];
+    for (var p = 0; p < allPatterns.length; p++) {
+      var pattern = allPatterns[p];
       var regex = pattern.regex;
       regex.lastIndex = 0;
 
@@ -404,7 +436,6 @@
           valid = pattern.validate(match);
         }
 
-        // Extra context-based rejection
         if (valid && pattern.contextReject) {
           if (pattern.contextReject(text, match.index, match[0])) {
             valid = false;
@@ -418,7 +449,8 @@
             severity: pattern.severity,
             text: match[0],
             start: match.index,
-            end: match.index + match[0].length
+            end: match.index + match[0].length,
+            isCustom: !!pattern.isCustom
           });
         }
       }
@@ -440,12 +472,50 @@
     };
   }
 
+  // ── Add/replace custom user patterns ──
+  // Each item: { pattern: "string or /regex/flags", label: "display name" }
+
+  function addCustomPatterns(list) {
+    customPatterns = [];
+    if (!list || !list.length) return;
+
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i];
+      var patternStr = typeof item === 'string' ? item : (item.pattern || '');
+      var label = typeof item === 'string' ? item : (item.label || item.pattern || '');
+      if (!patternStr) continue;
+
+      try {
+        var rx;
+        var reMatch = patternStr.match(/^\/(.+)\/([gimsuy]*)$/);
+        if (reMatch) {
+          rx = new RegExp(reMatch[1], reMatch[2] ? reMatch[2].replace(/[^gi]/g, '') + '' : 'gi');
+        } else {
+          // Escape special regex chars; use word boundary if alphanumeric
+          var escaped = patternStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          var boundary = /^[A-Za-z0-9_]/.test(patternStr) ? '\\b' : '';
+          rx = new RegExp(boundary + escaped + boundary, 'gi');
+        }
+
+        customPatterns.push({
+          name: 'custom_' + i,
+          category: 'Watch: ' + label,
+          severity: 2,
+          regex: rx,
+          validate: null,
+          isCustom: true
+        });
+      } catch (e) {
+        // Skip invalid patterns silently
+      }
+    }
+  }
+
   // ── Redact text by replacing findings with [REDACTED_*] labels ──
 
   function redact(text, findings) {
     if (!findings || findings.length === 0) return text;
 
-    // Work backwards so indices stay valid
     var sorted = findings.slice().sort(function (a, b) { return b.start - a.start; });
     var result = text;
     for (var i = 0; i < sorted.length; i++) {
@@ -482,7 +552,8 @@
       if (f.start > cursor) {
         html += escapeHTML(text.slice(cursor, f.start));
       }
-      html += '<mark class="pps-highlight pps-severity-' + f.severity +
+      var sevClass = f.isCustom ? 'pps-custom' : 'pps-severity-' + f.severity;
+      html += '<mark class="pps-highlight ' + sevClass +
         '" title="' + escapeHTML(f.category) + '">' +
         escapeHTML(text.slice(f.start, f.end)) + '</mark>';
       cursor = f.end;
@@ -506,14 +577,45 @@
     return counts;
   }
 
+  // ── Build HTML that highlights [REDACTED_*] markers in blue ──
+
+  function highlightRedactedHTML(text) {
+    var regex = /\[REDACTED_[A-Z_]+\]/g;
+    var html = '';
+    var cursor = 0;
+    var match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > cursor) {
+        html += escapeHTML(text.slice(cursor, match.index));
+      }
+      html += '<mark class="pps-highlight pps-redacted">' +
+        escapeHTML(match[0]) + '</mark>';
+      cursor = match.index + match[0].length;
+    }
+    if (cursor < text.length) {
+      html += escapeHTML(text.slice(cursor));
+    }
+    return html;
+  }
+
+  // ── Redact a single finding (for animated step-by-step redaction) ──
+
+  function redactOne(text, finding) {
+    var label = '[REDACTED_' + finding.name.toUpperCase() + ']';
+    return text.slice(0, finding.start) + label + text.slice(finding.end);
+  }
+
   // ── Expose public API ──
 
   window.PromptPrivacyDetector = {
     scan: scan,
     redact: redact,
+    redactOne: redactOne,
     highlightHTML: highlightHTML,
+    highlightRedactedHTML: highlightRedactedHTML,
     summarize: summarize,
     escapeHTML: escapeHTML,
+    addCustomPatterns: addCustomPatterns,
     ICONS: ICONS
   };
 })();

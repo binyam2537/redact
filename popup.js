@@ -1,206 +1,487 @@
 // Prompt Privacy Shield — Popup Logic
-// Unified editor/preview with analyze and redact
 
 (function () {
   'use strict';
 
   var Detector = window.PromptPrivacyDetector;
 
-  var inputArea = document.getElementById('input-area');
-  var previewArea = document.getElementById('preview-area');
-  var editorWrap = document.getElementById('editor-wrap');
-  var analyzeBtn = document.getElementById('analyze-btn');
-  var redactBtn = document.getElementById('redact-btn');
-  var summaryDiv = document.getElementById('findings-summary');
-  var safeBadge = document.getElementById('safe-badge');
-  var toggleMode = document.getElementById('toggle-mode');
-  var toggleTheme = document.getElementById('toggle-theme');
-
-  var mode = 'edit'; // 'edit' or 'preview'
+  // ── State ──
+  var currentTheme = 'light';
+  var customPatterns = [];
   var lastResult = null;
+  var lastText = '';
+  var isRedacting = false;
+  var isScanRunning = false;
+  var totalFindings = 0;
 
-  // ── Theme toggle ──
+  // ── Scan stages (slightly faster than content script) ──
+  var SCAN_STAGES = [
+    { label: 'Scanning API keys & tokens...', duration: 270 },
+    { label: 'Checking cloud credentials...', duration: 260 },
+    { label: 'Inspecting database URIs & JWTs...', duration: 240 },
+    { label: 'Looking for personal identifiers...', duration: 260 },
+    { label: 'Detecting financial data...', duration: 230 },
+    { label: 'Checking network artifacts...', duration: 210 },
+    { label: 'Applying custom watch patterns...', duration: 200 },
+    { label: 'Finalizing results...', duration: 180 }
+  ];
 
-  function detectTheme() {
-    var stored = localStorage.getItem('pps-theme');
-    if (stored) return stored;
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  }
+  // ── Elements — Main panel ──
+  var btnTheme = document.getElementById('btn-theme');
+  var iconSun = document.getElementById('icon-sun');
+  var iconMoon = document.getElementById('icon-moon');
+  var statCount = document.getElementById('stat-count');
+  var btnCheckText = document.getElementById('btn-check-text');
+  var patternListEl = document.getElementById('pattern-list');
+  var patternInput = document.getElementById('pattern-input');
+  var btnAddPattern = document.getElementById('btn-add-pattern');
+
+  // ── Elements — Checker panel ──
+  var editorWrap = document.getElementById('editor-wrap');
+  var checkTextarea = document.getElementById('check-textarea');
+  var checkPreview = document.getElementById('check-preview');
+  var scanStage = document.getElementById('scan-stage');
+  var stageLabel = document.getElementById('stage-label');
+  var checkSummary = document.getElementById('check-summary');
+  var btnScan = document.getElementById('btn-scan');
+  var btnRedact = document.getElementById('btn-redact');
+  var btnBack = document.getElementById('btn-back');
+
+  var panelMain = document.getElementById('panel-main');
+  var panelChecker = document.getElementById('panel-checker');
+
+  // ══════════════════════════════════════════════════════════════
+  // THEME
+  // ══════════════════════════════════════════════════════════════
 
   function applyTheme(theme) {
-    document.documentElement.style.colorScheme = theme;
-    var root = document.documentElement;
-
-    var sunIcon = document.getElementById('icon-sun');
-    var moonIcon = document.getElementById('icon-moon');
-
-    if (theme === 'light') {
-      root.style.setProperty('--bg', '#ffffff');
-      root.style.setProperty('--bg-elevated', '#f5f5f5');
-      root.style.setProperty('--bg-input', '#fafafa');
-      root.style.setProperty('--text', '#171717');
-      root.style.setProperty('--text-secondary', '#737373');
-      root.style.setProperty('--border', '#e5e5e5');
-      if (moonIcon) moonIcon.style.display = 'block';
-      if (sunIcon) sunIcon.style.display = 'none';
+    currentTheme = theme;
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      iconSun.style.display = 'block';
+      iconMoon.style.display = 'none';
     } else {
-      root.style.setProperty('--bg', '#1a1a1a');
-      root.style.setProperty('--bg-elevated', '#262626');
-      root.style.setProperty('--bg-input', '#2a2a2a');
-      root.style.setProperty('--text', '#e5e5e5');
-      root.style.setProperty('--text-secondary', '#a3a3a3');
-      root.style.setProperty('--border', '#333');
-      if (sunIcon) sunIcon.style.display = 'block';
-      if (moonIcon) moonIcon.style.display = 'none';
+      document.documentElement.classList.remove('dark');
+      iconSun.style.display = 'none';
+      iconMoon.style.display = 'block';
     }
   }
 
-  var currentTheme = detectTheme();
-  applyTheme(currentTheme);
-
-  toggleTheme.addEventListener('click', function () {
-    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('pps-theme', currentTheme);
-    applyTheme(currentTheme);
+  btnTheme.addEventListener('click', function () {
+    var next = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    chrome.storage.local.set({ pps_theme: next });
   });
 
-  // ── Mode toggle (edit / preview) ──
+  // ══════════════════════════════════════════════════════════════
+  // PANEL NAVIGATION
+  // ══════════════════════════════════════════════════════════════
 
-  function switchMode(newMode) {
-    mode = newMode;
-    if (mode === 'edit') {
-      inputArea.style.display = 'block';
-      previewArea.style.display = 'none';
-      toggleMode.classList.remove('active');
-      inputArea.focus();
-    } else {
-      // Render preview from current text
-      var text = inputArea.value;
-      if (lastResult && !lastResult.safe) {
-        previewArea.innerHTML = Detector.highlightHTML(text, lastResult.findings);
-      } else {
-        previewArea.innerHTML = Detector.escapeHTML(text);
+  btnCheckText.addEventListener('click', function () {
+    panelMain.style.display = 'none';
+    panelChecker.style.display = 'block';
+    setTimeout(function () { checkTextarea.focus(); }, 60);
+  });
+
+  btnBack.addEventListener('click', function () {
+    panelChecker.style.display = 'none';
+    panelMain.style.display = 'block';
+    resetChecker();
+  });
+
+  function resetChecker() {
+    checkTextarea.value = '';
+    checkPreview.style.display = 'none';
+    checkTextarea.style.display = 'block';
+    editorWrap.className = 'editor-wrap';
+    scanStage.style.display = 'none';
+    checkSummary.style.display = 'none';
+    checkSummary.innerHTML = '';
+    btnRedact.style.display = 'none';
+    btnRedact.disabled = false;
+    btnRedact.className = 'btn-danger-out';
+    btnRedact.innerHTML = PAINTBRUSH_SVG + ' Redact All';
+    btnScan.disabled = false;
+    btnScan.className = 'btn-primary';
+    btnScan.innerHTML = SCAN_SVG + ' Scan';
+    lastResult = null;
+    lastText = '';
+    isRedacting = false;
+    isScanRunning = false;
+  }
+
+  // Inline SVG snippets for buttons (to avoid external deps)
+  var SCAN_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
+  var PAINTBRUSH_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.622 17.897-10.68-2.913"/><path d="M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z"/><path d="M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15"/></svg>';
+  var SHIELD_CHECK_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>';
+
+  // ══════════════════════════════════════════════════════════════
+  // CUSTOM PATTERNS
+  // ══════════════════════════════════════════════════════════════
+
+  function renderPatterns() {
+    patternListEl.innerHTML = '';
+
+    // '<div class="pattern-empty">No patterns yet — add words or phrases to watch for</div>';
+    if (customPatterns.length === 0) {
+      patternListEl.innerHTML =
+        '<div class="pattern-empty">No custom patterns yet.</div>';
+      return;
+    }
+
+    customPatterns.forEach(function (item, idx) {
+      var label = typeof item === 'string' ? item : (item.label || item.pattern || '');
+      var div = document.createElement('div');
+      div.className = 'pattern-item';
+      div.innerHTML =
+        '<span class="pattern-dot"></span>' +
+        '<span class="pattern-text" title="' + esc(label) + '">' + esc(label) + '</span>' +
+        '<button class="pattern-remove" data-idx="' + idx + '" title="Remove">' +
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>';
+      patternListEl.appendChild(div);
+    });
+
+    patternListEl.querySelectorAll('.pattern-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        customPatterns.splice(parseInt(this.dataset.idx, 10), 1);
+        savePatterns();
+        renderPatterns();
+        Detector.addCustomPatterns(customPatterns);
+      });
+    });
+  }
+
+  function savePatterns() {
+    chrome.storage.sync.set({ pps_custom_patterns: customPatterns });
+  }
+
+  function addPattern() {
+    var val = patternInput.value.trim();
+    if (!val) return;
+
+    // Validate if it looks like a regex
+    var reMatch = val.match(/^\/(.+)\/([gimsuy]*)$/);
+    if (reMatch) {
+      try { new RegExp(reMatch[1]); }
+      catch (e) {
+        patternInput.style.borderColor = 'var(--danger)';
+        setTimeout(function () { patternInput.style.borderColor = ''; }, 1500);
+        return;
       }
-      inputArea.style.display = 'none';
-      previewArea.style.display = 'block';
-      toggleMode.classList.add('active');
     }
+
+    customPatterns.push({ pattern: val, label: val });
+    savePatterns();
+    renderPatterns();
+    Detector.addCustomPatterns(customPatterns);
+    patternInput.value = '';
+    patternInput.focus();
   }
 
-  toggleMode.addEventListener('click', function () {
-    if (mode === 'edit') {
-      // Auto-analyze before switching to preview
-      analyze();
-      switchMode('preview');
-    } else {
-      switchMode('edit');
-    }
+  btnAddPattern.addEventListener('click', addPattern);
+  patternInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); addPattern(); }
   });
 
-  // ── Analyze ──
+  // ══════════════════════════════════════════════════════════════
+  // STATS
+  // ══════════════════════════════════════════════════════════════
 
-  function analyze() {
-    var text = inputArea.value.trim();
+  function refreshStats() {
+    chrome.storage.local.get({ pps_total_redacted: 0 }, function (data) {
+      statCount.textContent = (data.pps_total_redacted || 0).toLocaleString();
+    });
+  }
 
-    // Reset
-    summaryDiv.style.display = 'none';
-    summaryDiv.innerHTML = '';
-    safeBadge.style.display = 'none';
-    redactBtn.style.display = 'none';
-    editorWrap.classList.remove('safe', 'unsafe');
+  // ══════════════════════════════════════════════════════════════
+  // CHECKER — fast preview on paste
+  // ══════════════════════════════════════════════════════════════
 
+  checkTextarea.addEventListener('paste', function () {
+    setTimeout(function () {
+      var text = checkTextarea.value.trim();
+      if (!text) return;
+      fastPreview(text);
+    }, 50);
+  });
+
+  // Also run fast preview on input (typing)
+  checkTextarea.addEventListener('input', function () {
+    if (isScanRunning || isRedacting) return;
+    var text = checkTextarea.value.trim();
     if (!text) {
+      editorWrap.className = 'editor-wrap';
+      checkSummary.style.display = 'none';
+      btnRedact.style.display = 'none';
       lastResult = null;
       return;
     }
+    // Debounce: only fast-preview after brief pause
+    clearTimeout(checkTextarea._debounce);
+    checkTextarea._debounce = setTimeout(function () { fastPreview(text); }, 400);
+  });
 
+  function fastPreview(text) {
+    lastText = text;
+    var result = Detector.scan(text);
+    lastResult = result;
+    totalFindings = result.findings.length;
+
+    checkSummary.style.display = 'none';
+    editorWrap.className = 'editor-wrap';
+
+    if (result.safe) {
+      editorWrap.className = 'editor-wrap is-safe';
+      checkSummary.innerHTML = buildSafeTag('Looks clean — click Scan for deep analysis');
+      checkSummary.style.display = 'flex';
+      btnRedact.style.display = 'none';
+    } else {
+      editorWrap.className = 'editor-wrap is-unsafe';
+      showPreview(Detector.highlightHTML(text, result.findings));
+      renderSummaryTags(result.findings);
+      checkSummary.style.display = 'flex';
+      btnRedact.style.display = 'flex';
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // CHECKER — Scan button (teleprompter + full scan)
+  // ══════════════════════════════════════════════════════════════
+
+  btnScan.addEventListener('click', function () {
+    if (isScanRunning || isRedacting) return;
+    var text = checkTextarea.style.display !== 'none'
+      ? checkTextarea.value.trim()
+      : lastText;
+    if (!text) return;
+    lastText = text;
+    runFullScan(text);
+  });
+
+  function runFullScan(text) {
+    isScanRunning = true;
+    btnScan.disabled = true;
+    btnRedact.style.display = 'none';
+    editorWrap.className = 'editor-wrap';
+
+    // Restore textarea if showing preview
+    showEditor();
+    checkSummary.style.display = 'none';
+
+    // Show stage indicator
+    scanStage.style.display = 'flex';
+    var idx = 0;
+
+    function nextStage() {
+      if (idx >= SCAN_STAGES.length) {
+        stageLabel.textContent = 'Done';
+        document.getElementById('stage-spinner').style.display = 'none';
+        setTimeout(function () {
+          scanStage.style.display = 'none';
+          finishFullScan(text);
+        }, 220);
+        return;
+      }
+      stageLabel.textContent = SCAN_STAGES[idx].label;
+      setTimeout(nextStage, SCAN_STAGES[idx].duration);
+      idx++;
+    }
+
+    nextStage();
+  }
+
+  function finishFullScan(text) {
+    isScanRunning = false;
+    document.getElementById('stage-spinner').style.display = 'block';
+    btnScan.disabled = false;
+
+    var result = Detector.scan(text);
+    lastResult = result;
+    lastText = text;
+    totalFindings = result.findings.length;
+
+    if (result.safe) {
+      editorWrap.className = 'editor-wrap is-safe';
+      checkSummary.innerHTML = buildSafeTag('No sensitive data found');
+      checkSummary.style.display = 'flex';
+      btnRedact.style.display = 'none';
+    } else {
+      editorWrap.className = 'editor-wrap is-unsafe';
+      showPreview(Detector.highlightHTML(text, result.findings));
+      renderSummaryTags(result.findings);
+      checkSummary.style.display = 'flex';
+      btnRedact.style.display = 'flex';
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // CHECKER — Redact All
+  // ══════════════════════════════════════════════════════════════
+
+  btnRedact.addEventListener('click', function () {
+    if (isRedacting || !lastResult || lastResult.safe) return;
+    startRedaction();
+  });
+
+  function startRedaction() {
+    isRedacting = true;
+    btnRedact.disabled = true;
+    btnRedact.classList.add('btn-redacting');
+    btnRedact.innerHTML = PAINTBRUSH_SVG + ' Redacting...';
+
+    var text = lastText;
+    var findings = lastResult.findings.slice().sort(function (a, b) { return b.start - a.start; });
+    var step = 0;
+    var delay = Math.max(80, Math.min(260, 1200 / findings.length));
+
+    function redactStep() {
+      if (step >= findings.length) {
+        finishRedaction(text);
+        return;
+      }
+
+      var f = findings[step];
+      text = text.slice(0, f.start) + '[REDACTED_' + f.name.toUpperCase() + ']' + text.slice(f.end);
+
+      var tempResult = Detector.scan(text);
+      var html;
+      if (tempResult.findings.length > 0) {
+        html = Detector.highlightHTML(text, tempResult.findings);
+        html = html.replace(
+          /(\[REDACTED_[A-Z_]+\])(?!<\/mark>)/g,
+          '<mark class="pps-highlight pps-redacted pps-redacted-fresh">$1</mark>'
+        );
+      } else {
+        html = Detector.highlightRedactedHTML(text);
+      }
+      showPreview(html);
+      checkTextarea.value = text;
+      lastText = text;
+
+      step++;
+      setTimeout(redactStep, delay);
+    }
+
+    setTimeout(redactStep, 140);
+  }
+
+  function finishRedaction(text) {
+    isRedacting = false;
+    lastText = text;
     lastResult = Detector.scan(text);
 
-    if (lastResult.safe) {
-      safeBadge.style.display = 'flex';
-      editorWrap.classList.add('safe');
+    showPreview(Detector.highlightRedactedHTML(text));
 
-      if (mode === 'preview') {
-        previewArea.innerHTML = Detector.escapeHTML(text);
-      }
-      return;
-    }
+    // Update stats
+    chrome.storage.local.get({ pps_total_redacted: 0 }, function (data) {
+      var newTotal = (data.pps_total_redacted || 0) + totalFindings;
+      chrome.storage.local.set({ pps_total_redacted: newTotal });
+      statCount.textContent = newTotal.toLocaleString();
+    });
 
-    // Unsafe — show findings
-    editorWrap.classList.add('unsafe');
-    redactBtn.style.display = 'flex';
+    editorWrap.className = 'editor-wrap is-safe';
 
-    // Build summary tags
-    var counts = Detector.summarize(lastResult.findings);
-    var tagsHTML = '';
+    btnRedact.disabled = false;
+    btnRedact.classList.remove('btn-redacting');
+    btnRedact.className = 'btn-success';
+    btnRedact.innerHTML = SHIELD_CHECK_SVG + ' ' +
+      totalFindings + ' item' + (totalFindings !== 1 ? 's' : '') + ' redacted';
+
+    checkSummary.innerHTML = buildSafeTag(totalFindings + ' item' + (totalFindings !== 1 ? 's' : '') + ' redacted');
+    checkSummary.style.display = 'flex';
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // HELPERS
+  // ══════════════════════════════════════════════════════════════
+
+  function showPreview(html) {
+    checkPreview.innerHTML = html;
+    checkTextarea.style.display = 'none';
+    checkPreview.style.display = 'block';
+  }
+
+  function showEditor() {
+    checkPreview.style.display = 'none';
+    checkTextarea.style.display = 'block';
+  }
+
+  // Click preview to go back to editing
+  checkPreview.addEventListener('click', function () {
+    if (isRedacting) return;
+    showEditor();
+    editorWrap.className = 'editor-wrap';
+    checkSummary.style.display = 'none';
+    btnRedact.style.display = 'none';
+    lastResult = null;
+  });
+
+  function renderSummaryTags(findings) {
+    var counts = Detector.summarize(findings);
+    var html = '';
     for (var cat in counts) {
       var sev = 1;
-      for (var i = 0; i < lastResult.findings.length; i++) {
-        if (lastResult.findings[i].category === cat) { sev = lastResult.findings[i].severity; break; }
+      var isCustom = false;
+      for (var i = 0; i < findings.length; i++) {
+        if (findings[i].category === cat) {
+          sev = findings[i].severity;
+          isCustom = !!findings[i].isCustom;
+          break;
+        }
       }
-      tagsHTML += '<span class="finding-tag sev-' + sev + '">' +
-        Detector.escapeHTML(cat) + ' \u00d7' + counts[cat] + '</span>';
+      var cls = isCustom ? 'stag-custom' : 'stag-' + sev;
+      html += '<span class="stag ' + cls + '">' + esc(cat) + ' \u00d7' + counts[cat] + '</span>';
     }
-    summaryDiv.innerHTML = tagsHTML;
-    summaryDiv.style.display = 'flex';
-
-    if (mode === 'preview') {
-      previewArea.innerHTML = Detector.highlightHTML(text, lastResult.findings);
-    }
+    checkSummary.innerHTML = html;
   }
 
-  // ── Redact ──
+  function buildSafeTag(label) {
+    return '<span class="stag stag-safe">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>' +
+      '<path d="m9 12 2 2 4-4"/></svg>' +
+      esc(label) + '</span>';
+  }
 
-  function redactAll() {
-    if (!lastResult || lastResult.safe) return;
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
-    var text = inputArea.value;
-    var redacted = Detector.redact(text, lastResult.findings);
+  // ══════════════════════════════════════════════════════════════
+  // INIT
+  // ══════════════════════════════════════════════════════════════
 
-    inputArea.value = redacted;
-    analyze(); // Re-scan
+  function init() {
+    // Load theme + stats
+    chrome.storage.local.get({ pps_total_redacted: 0 }, function (data) {
+      statCount.textContent = (data.pps_total_redacted || 0).toLocaleString();
+    });
 
-    // Switch to preview to show the clean result
-    if (mode === 'edit') {
-      switchMode('preview');
-    } else {
-      var newText = inputArea.value;
-      if (lastResult && !lastResult.safe) {
-        previewArea.innerHTML = Detector.highlightHTML(newText, lastResult.findings);
+    chrome.storage.local.get('pps_theme', function (data) {
+      if (data.pps_theme) {
+        applyTheme(data.pps_theme);
       } else {
-        previewArea.innerHTML = Detector.escapeHTML(newText);
+        // First run — respect OS preference
+        var osPrefers = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        applyTheme(osPrefers);
       }
-    }
+    });
+
+    // Load custom patterns
+    chrome.storage.sync.get({ pps_custom_patterns: [] }, function (data) {
+      customPatterns = data.pps_custom_patterns || [];
+      renderPatterns();
+      Detector.addCustomPatterns(customPatterns);
+    });
+
+    // Refresh stats when popup is focused (user may have redacted via content script)
+    window.addEventListener('focus', refreshStats);
   }
 
-  // ── Event listeners ──
-
-  analyzeBtn.addEventListener('click', function () {
-    analyze();
-    if (lastResult && !lastResult.safe) {
-      switchMode('preview');
-    }
-  });
-
-  redactBtn.addEventListener('click', redactAll);
-
-  inputArea.addEventListener('keydown', function (e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      analyze();
-      if (lastResult && !lastResult.safe) {
-        switchMode('preview');
-      }
-    }
-  });
-
-  // Auto-analyze on paste
-  inputArea.addEventListener('paste', function () {
-    setTimeout(function () {
-      analyze();
-      if (lastResult && !lastResult.safe) {
-        switchMode('preview');
-      }
-    }, 50);
-  });
+  init();
 })();

@@ -1,268 +1,860 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
   <meta charset="utf-8">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
+    /* ── Design tokens ── */
     :root {
-      --bg: #1a1a1a;
-      --bg-elevated: #262626;
-      --bg-input: #2a2a2a;
-      --text: #e5e5e5;
-      --text-secondary: #a3a3a3;
-      --border: #333;
-      --danger: #ef4444;
-      --success: #22c55e;
-      --accent: #3b82f6;
+      --bg: #f2f2f7;
+      --surface: #ffffff;
+      --surf2: #e5e5ea;
+      --text: #1c1c1e;
+      --text2: #8e8e93;
+      --text3: #c7c7cc;
+      --sep: rgba(60, 60, 67, 0.16);
+      --accent: #007aff;
+      --danger: #ff3b30;
+      --success: #34c759;
+      --warning: #ff9500;
+      --custom: #9c59d1;
+      --sh: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+      --sh-md: 0 6px 24px rgba(0, 0, 0, 0.08), 0 1px 6px rgba(0, 0, 0, 0.04);
+      --r: 12px;
+      --r-sm: 8px;
+      --r-pill: 20px;
     }
 
-    @media (prefers-color-scheme: light) {
-      :root {
-        --bg: #ffffff;
-        --bg-elevated: #f5f5f5;
-        --bg-input: #fafafa;
-        --text: #171717;
-        --text-secondary: #737373;
-        --border: #e5e5e5;
-      }
+    html.dark {
+      --bg: #1c1c1e;
+      --surface: #2c2c2e;
+      --surf2: #3a3a3c;
+      --text: #f2f2f7;
+      --text2: #8e8e93;
+      --text3: #48484a;
+      --sep: rgba(84, 84, 88, 0.55);
+      --accent: #0a84ff;
+      --danger: #ff453a;
+      --success: #30d158;
+      --warning: #ff9f0a;
+      --custom: #bf87ff;
+      --sh: 0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+      --sh-md: 0 6px 24px rgba(0, 0, 0, 0.4), 0 1px 6px rgba(0, 0, 0, 0.3);
     }
 
+    html,
     body {
-      width: 400px;
-      min-height: 280px;
+      width: 280px;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      font-size: 13px;
-      padding: 16px;
+      font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Toolbar ── */
-
     .toolbar {
       display: flex;
       align-items: center;
-      gap: 4px;
-      margin-bottom: 12px;
+      height: 52px;
+      padding: 0 14px;
+      /* background: var(--surface); */
+      /* border-bottom: 1px solid var(--sep); */
+      /* box-shadow: var(--sh); */
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
 
-    .toolbar-spacer { flex: 1; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text);
+      flex: 1;
+    }
 
-    .btn-icon {
+    .brand-icon {
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .icon-btn {
       background: none;
       border: none;
-      color: var(--text-secondary);
+      color: var(--text2);
       cursor: pointer;
-      padding: 6px;
-      border-radius: 6px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: color 0.15s, background 0.15s;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
     }
 
-    .btn-icon:hover {
+    .icon-btn:hover {
+      background: var(--surf2);
       color: var(--text);
-      background: var(--bg-elevated);
     }
 
-    .btn-icon.active {
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: none;
+      border: none;
       color: var(--accent);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 4px 0;
+      font-family: inherit;
+      flex-shrink: 0;
     }
 
-    /* ── Editor area (unified — textarea when editing, div when previewing) ── */
+    .back-btn:hover {
+      opacity: 0.7;
+    }
 
-    .editor-wrap {
-      position: relative;
-      border: 1px solid var(--border);
-      border-radius: 8px;
+    .toolbar-title {
+      flex: 1;
+      text-align: center;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .toolbar-spacer {
+      width: 60px;
+      flex-shrink: 0;
+    }
+
+    /* ── Panel content ── */
+    .panel-content {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+
+    /* ── Stats card ── */
+    .stats-card {
+      background: var(--accent);
+      border-radius: var(--r);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      /* box-shadow: 0 3px 14px rgba(0, 122, 255, 0.3); */
+    }
+
+    html.dark .stats-card {
+      box-shadow: 0 3px 14px rgba(10, 132, 255, 0.35);
+    }
+
+    .stats-icon {
+      color: rgba(255, 255, 255, 0.8);
+      flex-shrink: 0;
+    }
+
+    .stats-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .stats-number {
+      font-size: 30px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.05;
+      letter-spacing: -0.5px;
+    }
+
+    .stats-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.72);
+      margin-top: 3px;
+    }
+
+    /* ── CTA button ── */
+    .btn-cta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--sep);
+      border-radius: var(--r);
+      padding: 13px 15px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      width: 100%;
+      /* box-shadow: var(--sh); */
+      transition: background 0.15s;
+      text-align: left;
+    }
+
+    .btn-cta:hover {
+      background: var(--surf2);
+    }
+
+    .btn-cta .cta-label {
+      flex: 1;
+    }
+
+    .btn-cta .cta-left {
+      /* color: var(--accent); */
+      flex-shrink: 0;
+    }
+
+    .btn-cta .cta-right {
+      color: var(--text3);
+      flex-shrink: 0;
+    }
+
+    /* ── Section card ── */
+    .section {
+      background: var(--surface);
+      border-radius: var(--r);
+      border: 1px solid var(--sep);
+      /* box-shadow: var(--sh); */
       overflow: hidden;
-      transition: border-color 0.2s;
     }
 
-    .editor-wrap:focus-within {
+    .section-header {
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--sep);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text2);
+    }
+
+    /* ── Pattern list ── */
+    .pattern-list {
+      max-height: 168px;
+      overflow-y: auto;
+    }
+
+    .pattern-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .pattern-list::-webkit-scrollbar-thumb {
+      background: var(--sep);
+      border-radius: 2px;
+    }
+
+    .pattern-empty {
+      padding: 14px 14px;
+      font-size: 13px;
+      color: var(--text3);
+      font-style: italic;
+    }
+
+    .pattern-item {
+      display: flex;
+      align-items: center;
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--sep);
+      gap: 9px;
+    }
+
+    .pattern-item:last-child {
+      border-bottom: none;
+    }
+
+    .pattern-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--custom);
+      flex-shrink: 0;
+    }
+
+    .pattern-text {
+      flex: 1;
+      font-size: 13px;
+      color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pattern-remove {
+      background: none;
+      border: none;
+      color: var(--danger);
+      cursor: pointer;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      opacity: 0.5;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+
+    .pattern-remove:hover {
+      opacity: 1;
+    }
+
+    .pattern-add {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 10px;
+      border-top: 1px solid var(--sep);
+    }
+
+    .pattern-input {
+      flex: 1;
+      background: var(--surf2);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      padding: 7px 10px;
+      font-size: 13px;
+      color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      outline: none;
+      transition: border-color 0.15s;
+      min-width: 0;
+    }
+
+    .pattern-input:focus {
       border-color: var(--accent);
     }
 
-    .editor-wrap.safe {
+    .pattern-input::placeholder {
+      color: var(--text3);
+      font-family: -apple-system, sans-serif;
+    }
+
+    .btn-add {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--r-sm);
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-add:hover {
+      opacity: 0.85;
+    }
+
+    .btn-add:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    /* ── Footer ── */
+    .panel-footer {
+      padding: 8px 14px 14px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text3);
+    }
+
+    /* ══════════════════════════════════════════
+       CHECKER PANEL
+    ══════════════════════════════════════════ */
+
+    .checker-content {
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Editor */
+    .editor-wrap {
+      border: 1.5px solid var(--sep);
+      border-radius: var(--r);
+      overflow: hidden;
+      transition: border-color 0.25s;
+      background: var(--surface);
+      /* box-shadow: var(--sh); */
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-wrap.is-safe {
       border-color: var(--success);
     }
 
-    .editor-wrap.unsafe {
+    .editor-wrap.is-unsafe {
       border-color: var(--danger);
     }
 
-    #input-area {
-      width: 100%;
-      min-height: 140px;
-      max-height: 300px;
-      background: var(--bg-input);
-      color: var(--text);
+    #check-textarea {
+      min-height: 196px;
+      background: transparent;
       border: none;
-      padding: 12px;
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-      font-size: 13px;
-      line-height: 1.6;
-      resize: vertical;
       outline: none;
+      padding: 13px 14px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      font-family: -apple-system, sans-serif;
+      resize: none;
+      width: 100%;
     }
 
-    #preview-area {
-      display: none;
-      width: 100%;
-      min-height: 140px;
-      max-height: 300px;
-      overflow-y: auto;
-      background: var(--bg-input);
-      padding: 12px;
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    #check-textarea::placeholder {
+      color: var(--text3);
+    }
+
+    #check-preview {
+      min-height: 196px;
+      padding: 13px 14px;
       font-size: 13px;
-      line-height: 1.6;
+      line-height: 1.7;
+      color: var(--text);
+      font-family: -apple-system, sans-serif;
       white-space: pre-wrap;
       word-break: break-word;
+      overflow-y: auto;
+      cursor: text;
     }
 
-    /* ── Action buttons ── */
+    /* Scan stage indicator */
+    .scan-stage {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 13px;
+      background: var(--surface);
+      border: 1px solid var(--sep);
+      border-radius: var(--r-sm);
+      font-size: 12.5px;
+      color: var(--text2);
+    }
 
-    .actions {
+    .stage-spinner {
+      width: 13px;
+      height: 13px;
+      border: 2px solid var(--sep);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Summary tags */
+    .check-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .stag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: var(--r-pill);
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+
+    .stag-1 {
+      background: rgba(255, 159, 10, 0.12);
+      color: var(--warning);
+    }
+
+    .stag-2 {
+      background: rgba(255, 149, 0, 0.15);
+      color: #c06200;
+    }
+
+    .stag-3 {
+      background: rgba(255, 59, 48, 0.12);
+      color: var(--danger);
+    }
+
+    .stag-custom {
+      background: rgba(156, 89, 209, 0.12);
+      color: var(--custom);
+    }
+
+    .stag-safe {
+      background: rgba(52, 199, 89, 0.12);
+      color: var(--success);
+    }
+
+    html.dark .stag-2 {
+      color: #ff8c00;
+    }
+
+    /* Checker actions */
+    .checker-actions {
+      padding: 0 13px 13px;
       display: flex;
       gap: 8px;
-      margin-top: 12px;
     }
 
-    .btn {
+    .btn-primary {
       flex: 1;
-      padding: 9px 14px;
-      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
       border: none;
-      cursor: pointer;
-      font-size: 13px;
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 14px;
       font-weight: 500;
+      cursor: pointer;
       font-family: inherit;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      transition: background 0.15s, opacity 0.15s;
+      gap: 7px;
+      transition: opacity 0.15s;
     }
 
-    .btn:hover { opacity: 0.9; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .btn-analyze {
-      background: var(--accent);
-      color: #fff;
+    .btn-primary:hover {
+      opacity: 0.86;
     }
 
-    .btn-redact {
-      background: var(--danger);
-      color: #fff;
-      display: none;
+    .btn-primary:disabled {
+      opacity: 0.45;
+      cursor: default;
     }
 
-    /* ── Findings summary ── */
-
-    #findings-summary {
-      margin-top: 10px;
-      display: none;
-      font-size: 12px;
-      line-height: 1.6;
-      display: none;
-      flex-wrap: wrap;
-      gap: 4px;
+    .btn-danger-out {
+      background: transparent;
+      color: var(--danger);
+      border: 1.5px solid rgba(255, 59, 48, 0.35);
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
       align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: background 0.15s;
     }
 
-    .finding-tag {
-      display: inline-block;
-      padding: 2px 8px;
+    .btn-danger-out:hover {
+      background: rgba(255, 59, 48, 0.06);
+    }
+
+    .btn-success {
+      flex: 1;
+      background: var(--success);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+
+    /* PII highlights */
+    mark.pps-highlight {
+      padding: 2px 4px;
       border-radius: 4px;
-      font-size: 11px;
-      margin: 1px;
+      cursor: help;
+      font-style: normal;
+    }
+
+    mark.pps-severity-1 {
+      background: rgba(255, 159, 10, 0.18);
+      color: #b86000;
+    }
+
+    mark.pps-severity-2 {
+      background: rgba(255, 149, 0, 0.18);
+      color: #c06200;
+    }
+
+    mark.pps-severity-3 {
+      background: rgba(255, 59, 48, 0.18);
+      color: #c0392b;
+    }
+
+    mark.pps-custom {
+      background: rgba(156, 89, 209, 0.14);
+      color: var(--custom);
+    }
+
+    html.dark mark.pps-severity-1 {
+      color: #ff9f0a;
+      background: rgba(255, 159, 10, 0.18);
+    }
+
+    html.dark mark.pps-severity-2 {
+      color: #ff8c00;
+      background: rgba(255, 149, 0, 0.18);
+    }
+
+    html.dark mark.pps-severity-3 {
+      color: #ff453a;
+      background: rgba(255, 69, 58, 0.2);
+    }
+
+    html.dark mark.pps-custom {
+      color: #bf87ff;
+      background: rgba(191, 135, 255, 0.16);
+    }
+
+    mark.pps-redacted {
+      background: rgba(0, 122, 255, 0.13);
+      color: var(--accent);
       font-weight: 500;
     }
 
-    .sev-1 { background: rgba(234, 179, 8, 0.12); color: #ca8a04; }
-    .sev-2 { background: rgba(249, 115, 22, 0.12); color: #ea580c; }
-    .sev-3 { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
-
-    @media (prefers-color-scheme: dark) {
-      .sev-1 { color: #facc15; }
-      .sev-2 { color: #fb923c; }
-      .sev-3 { color: #f87171; }
+    html.dark mark.pps-redacted {
+      background: rgba(10, 132, 255, 0.15);
+      color: var(--accent);
     }
 
-    .safe-badge {
-      color: var(--success);
-      margin-top: 10px;
-      font-size: 13px;
-      display: none;
-      align-items: center;
-      gap: 6px;
+    mark.pps-redacted-fresh {
+      animation: redact-pop 0.5s ease-out;
     }
 
-    /* ── PII Highlights ── */
+    @keyframes redact-pop {
+      0% {
+        background: rgba(0, 122, 255, 0.4);
+        transform: scale(1.06);
+      }
 
-    mark.pps-highlight {
-      padding: 1px 3px;
-      border-radius: 3px;
-      cursor: help;
+      100% {
+        background: rgba(0, 122, 255, 0.13);
+        transform: scale(1);
+      }
     }
 
-    mark.pps-severity-1 { background: rgba(234, 179, 8, 0.18); color: #a16207; }
-    mark.pps-severity-2 { background: rgba(249, 115, 22, 0.18); color: #c2410c; }
-    mark.pps-severity-3 { background: rgba(239, 68, 68, 0.18); color: #b91c1c; }
+    /* Redact animation */
+    .btn-redacting {
+      position: relative;
+      overflow: hidden;
+      pointer-events: none;
+    }
 
-    @media (prefers-color-scheme: dark) {
-      mark.pps-severity-1 { color: #facc15; }
-      mark.pps-severity-2 { color: #fb923c; }
-      mark.pps-severity-3 { color: #f87171; }
+    .btn-redacting svg {
+      animation: brush-sweep 0.8s ease-in-out infinite;
+    }
+
+    @keyframes brush-sweep {
+
+      0%,
+      100% {
+        transform: rotate(0);
+      }
+
+      25% {
+        transform: rotate(-18deg) translateX(-2px);
+      }
+
+      75% {
+        transform: rotate(18deg) translateX(2px);
+      }
+    }
+
+    .btn-redacting::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+      animation: shimmer 1.2s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      from {
+        transform: translateX(-100%);
+      }
+
+      to {
+        transform: translateX(100%);
+      }
     }
   </style>
 </head>
+
 <body>
 
-  <div class="toolbar">
-    <button class="btn-icon" id="toggle-mode" title="Toggle edit / preview">
-      <!-- Lucide eye icon -->
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
-    </button>
-    <div class="toolbar-spacer"></div>
-    <button class="btn-icon" id="toggle-theme" title="Toggle light/dark mode">
-      <!-- Lucide sun icon (shown in dark mode) -->
-      <svg id="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-      <!-- Lucide moon icon (shown in light mode) -->
-      <svg id="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-    </button>
+  <!-- ═══════════════════════════════════════════
+     PANEL: MAIN
+═══════════════════════════════════════════ -->
+  <div id="panel-main">
+    <div class="toolbar">
+      <div class="brand">
+        <svg class="brand-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+        Privacy Shield
+      </div>
+      <button class="icon-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
+        <svg id="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="m4.93 4.93 1.41 1.41" />
+          <path d="m17.66 17.66 1.41 1.41" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+          <path d="m6.34 17.66-1.41 1.41" />
+          <path d="m19.07 4.93-1.41 1.41" />
+        </svg>
+        <svg id="icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="panel-content">
+
+      <!-- Stats card -->
+      <div class="stats-card">
+        <svg class="stats-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+        <div class="stats-body">
+          <div class="stats-number" id="stat-count">0</div>
+          <div class="stats-label">sensitive items protected</div>
+        </div>
+      </div>
+
+      <!-- Custom Watch Patterns -->
+      <div class="section">
+        <!-- <div class="section-header">
+          <span class="section-title">Watch Patterns</span>
+        </div> -->
+        <div class="pattern-list" id="pattern-list">
+          <div class="pattern-empty">Add custom patterns</div>
+        </div>
+        <div class="pattern-add">
+          <input class="pattern-input" type="text" id="pattern-input" placeholder="word, phrase, or /regex/..."
+            autocomplete="off" spellcheck="false" />
+          <button class="btn-add" id="btn-add-pattern">Add</button>
+        </div>
+      </div>
+
+      <!-- Check Text CTA -->
+      <button class="btn-cta" id="btn-check-text">
+        <svg class="cta-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <span class="cta-label">Check Text for PII</span>
+        <svg class="cta-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+
+    </div>
+
+    <div class="panel-footer">v1.1 · Active on ChatGPT · Gemini · Claude</div>
   </div>
 
-  <div class="editor-wrap" id="editor-wrap">
-    <textarea id="input-area" placeholder="Paste text to analyze for sensitive data..."></textarea>
-    <div id="preview-area"></div>
-  </div>
 
-  <div class="actions">
-    <button class="btn btn-analyze" id="analyze-btn">
-      <!-- Lucide search icon -->
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      Analyze
-    </button>
-    <button class="btn btn-redact" id="redact-btn">
-      <!-- Lucide eraser icon -->
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
-      Redact All
-    </button>
-  </div>
+  <!-- ═══════════════════════════════════════════
+     PANEL: CHECKER
+═══════════════════════════════════════════ -->
+  <div id="panel-checker" style="display:none">
+    <div class="toolbar">
+      <button class="back-btn" id="btn-back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back
+      </button>
+      <span class="toolbar-title">Check Text</span>
+      <div class="toolbar-spacer"></div>
+    </div>
 
-  <div class="safe-badge" id="safe-badge">
-    <!-- Lucide shield-check icon -->
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
-    No sensitive data detected.
+    <div class="checker-content">
+
+      <div class="editor-wrap" id="editor-wrap">
+        <textarea id="check-textarea" placeholder="Paste or type text to scan for sensitive data..."
+          spellcheck="false"></textarea>
+        <div id="check-preview" style="display:none"></div>
+      </div>
+
+      <div class="scan-stage" id="scan-stage" style="display:none">
+        <div class="stage-spinner" id="stage-spinner"></div>
+        <span id="stage-label">Initializing...</span>
+      </div>
+
+      <div class="check-summary" id="check-summary" style="display:none"></div>
+
+    </div>
+
+    <div class="checker-actions" id="checker-actions">
+      <button class="btn-primary" id="btn-scan">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        Scan
+      </button>
+      <button class="btn-danger-out" id="btn-redact" style="display:none">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="m14.622 17.897-10.68-2.913" />
+          <path
+            d="M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z" />
+          <path
+            d="M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15" />
+        </svg>
+        Redact All
+      </button>
+    </div>
   </div>
-  <div id="findings-summary"></div>
 
   <script src="detector.js"></script>
   <script src="popup.js"></script>
 </body>
+
 </html>

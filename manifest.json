@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Prompt Privacy Shield",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Prevents accidental PII and secret leakage into AI chatbots",
-  "permissions": ["activeTab"],
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -21,9 +24,18 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://chatgpt.com/*"],
-      "js": ["detector.js", "content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*",
+        "*://claude.ai/*"
+      ],
+      "js": [
+        "detector.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     }
   ]

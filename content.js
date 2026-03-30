@@ -1,45 +1,106 @@
-// Prompt Privacy Shield — Content Script for ChatGPT
-// Intercepts paste events, scans for PII, blocks send until reviewed
+// Prompt Privacy Shield — Content Script
+// Two-stage detection: fast REGEX scan → optional deep-scan modal with teleprompter
 
 (function () {
   'use strict';
 
-  var Detector = null; // Set after DOM ready
+  var Detector = null;
   var ICONS = null;
 
   // ── State ──
   var STATE_IDLE = 'IDLE';
-  var STATE_SAFE = 'SAFE';
-  var STATE_UNSAFE = 'UNSAFE';
+  var STATE_SAFE = 'SAFE';     // regex clean — scan icon shown
+  var STATE_UNSAFE = 'UNSAFE';   // regex found PII — review btn + send blocked
+  var STATE_REVIEWING = 'REVIEWING'; // modal open
 
   var state = STATE_IDLE;
   var lastFindings = [];
   var lastPastedText = '';
+  var isRedacting = false;
+  var totalFindings = 0;
 
-  // ── Selectors ──
-  var TEXTAREA_SEL = '#prompt-textarea';
-  var SEND_BTN_SEL = '[data-testid="send-button"], #composer-submit-button';
+  // ── Selectors (ChatGPT, Gemini, Claude) ──
 
-  // ── Initialization ──
+  var TEXTAREA_SELS = [
+    '#prompt-textarea',
+    'div[contenteditable="true"].ql-editor',
+    'div[contenteditable="true"].ProseMirror',
+    'div[contenteditable="true"][role="textbox"]',
+    'rich-textarea div[contenteditable]'
+  ];
+
+  var SEND_BTN_SEL = [
+    '[data-testid="send-button"]',
+    '#composer-submit-button',
+    'button[aria-label*="Send"]',
+    'button[aria-label*="send"]',
+    'button[data-testid="fruitjuice-send-button"]'
+  ].join(', ');
+
+  // ── Teleprompter stages ──
+
+  var TP_STAGES = [
+    { label: 'Scanning API keys & tokens...', duration: 350 },
+    { label: 'Checking cloud credentials...', duration: 320 },
+    { label: 'Inspecting database URIs & JWTs...', duration: 300 },
+    { label: 'Looking for personal identifiers...', duration: 350 },
+    { label: 'Detecting financial data...', duration: 280 },
+    { label: 'Checking network & infrastructure...', duration: 250 },
+    { label: 'Applying custom watch patterns...', duration: 250 },
+    { label: 'Compiling results...', duration: 200 }
+  ];
+
+  // ── Helpers ──
+
+  function findTextarea() {
+    for (var i = 0; i < TEXTAREA_SELS.length; i++) {
+      var el = document.querySelector(TEXTAREA_SELS[i]);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function updateFloatingElements() {
+    var reviewBtn = document.getElementById('pps-review-btn');
+    var scanIcon = document.getElementById('pps-scan-icon');
+    var overlay = document.getElementById('pps-send-overlay');
+    if (reviewBtn) positionReviewButton(reviewBtn);
+    if (scanIcon) positionScanIcon(scanIcon);
+    if (overlay) positionOverlay(overlay);
+  }
+
+  // ── Init ──
 
   function init() {
     Detector = window.PromptPrivacyDetector;
     ICONS = Detector.ICONS;
+
+    // Load custom patterns
+    chrome.storage.sync.get({ pps_custom_patterns: [] }, function (data) {
+      Detector.addCustomPatterns(data.pps_custom_patterns || []);
+    });
+
+    // Live-reload patterns when popup changes them
+    chrome.storage.onChanged.addListener(function (changes, area) {
+      if (area === 'sync' && changes.pps_custom_patterns) {
+        Detector.addCustomPatterns(changes.pps_custom_patterns.newValue || []);
+      }
+    });
+
     tryAttach();
 
     var observer = new MutationObserver(function () {
       tryAttach();
-      // Reposition overlay if send button moved
-      if (state === STATE_UNSAFE) {
-        var overlay = document.getElementById('pps-send-overlay');
-        if (overlay) positionOverlay(overlay);
-      }
+      updateFloatingElements();
     });
     observer.observe(document.body, { childList: true, subtree: true });
+
+    window.addEventListener('scroll', updateFloatingElements, { passive: true });
+    window.addEventListener('resize', updateFloatingElements);
   }
 
   function tryAttach() {
-    var textarea = document.querySelector(TEXTAREA_SEL);
+    var textarea = findTextarea();
     if (textarea && !textarea.__ppsAttached) {
       textarea.addEventListener('paste', onPaste, true);
       textarea.addEventListener('input', onInput);
@@ -57,44 +118,44 @@
     if (!text || text.length < 5) return;
 
     closeModal();
-    blockSendButton();
+    removeScanIcon();
 
     var result = Detector.scan(text);
+    lastPastedText = text;
 
     if (result.safe) {
-      handleSafe();
+      handleSafe(text);
     } else {
       handleUnsafe(text, result);
     }
   }
 
-  // ── Input Handler ──
-
   function onInput() {
     if (state !== STATE_UNSAFE) return;
-    var textarea = document.querySelector(TEXTAREA_SEL);
-    if (textarea && textarea.textContent.trim() === '') {
-      cleanup();
-    }
+    var textarea = findTextarea();
+    if (!textarea) return;
+    var content = (textarea.tagName === 'TEXTAREA')
+      ? textarea.value
+      : (textarea.textContent || '');
+    if (content.trim() === '') cleanup();
   }
 
   // ── Safe Flow ──
 
-  function handleSafe() {
+  function handleSafe(text) {
     state = STATE_SAFE;
-    var textarea = document.querySelector(TEXTAREA_SEL);
+
+    var textarea = findTextarea();
     if (textarea) {
       textarea.classList.remove('pps-unsafe');
       textarea.classList.add('pps-safe');
-    }
-
-    setTimeout(function () {
-      unblockSendButton();
       setTimeout(function () {
         if (textarea) textarea.classList.remove('pps-safe');
-        if (state === STATE_SAFE) state = STATE_IDLE;
-      }, 1500);
-    }, 300);
+      }, 1400);
+    }
+
+    unblockSendButton();
+    showScanIcon(text);
   }
 
   // ── Unsafe Flow ──
@@ -102,15 +163,97 @@
   function handleUnsafe(text, result) {
     state = STATE_UNSAFE;
     lastFindings = result.findings;
-    lastPastedText = text;
+    totalFindings = result.findings.length;
 
-    var textarea = document.querySelector(TEXTAREA_SEL);
+    var textarea = findTextarea();
     if (textarea) {
       textarea.classList.remove('pps-safe');
       textarea.classList.add('pps-unsafe');
     }
 
-    showReviewButton();
+    blockSendButton();
+    showReviewButton(text);
+  }
+
+  // ── Scan Icon (safe flow) ──
+
+  function showScanIcon(text) {
+    var existing = document.getElementById('pps-scan-icon');
+    if (existing) existing.remove();
+
+    var icon = document.createElement('button');
+    icon.id = 'pps-scan-icon';
+    icon.title = 'Deep scan to check for hidden sensitive data';
+    icon.innerHTML = ICONS.shieldCheck;
+    icon.addEventListener('click', function () {
+      removeScanIcon();
+      openDeepScanModal(text);
+    });
+
+    document.body.appendChild(icon);
+    positionScanIcon(icon);
+
+    // Auto-fade after 10s
+    var fadeTimer = setTimeout(function () {
+      var el = document.getElementById('pps-scan-icon');
+      if (el) {
+        el.style.opacity = '0';
+        setTimeout(function () { if (el.parentNode) el.remove(); }, 300);
+      }
+    }, 10000);
+
+    icon._fadeTimer = fadeTimer;
+  }
+
+  function positionScanIcon(icon) {
+    var textarea = findTextarea();
+    if (!textarea) return;
+    var rect = textarea.getBoundingClientRect();
+    icon.style.top = Math.max(4, rect.top - 46) + 'px';
+    icon.style.right = Math.max(2, window.innerWidth - rect.right + 5) + 'px';
+    icon.style.left = '';
+    icon.style.bottom = '';
+  }
+
+  function removeScanIcon() {
+    var icon = document.getElementById('pps-scan-icon');
+    if (icon) {
+      if (icon._fadeTimer) clearTimeout(icon._fadeTimer);
+      icon.remove();
+    }
+  }
+
+  // ── Review Button (unsafe flow) ──
+
+  function showReviewButton(text) {
+    var existing = document.getElementById('pps-review-btn');
+    if (existing) existing.remove();
+
+    var btn = document.createElement('button');
+    btn.id = 'pps-review-btn';
+    btn.innerHTML = ICONS.shieldAlert + ' <span>Review Sensitive Data</span>';
+    btn.addEventListener('click', function () {
+      openReviewModal(text, lastFindings);
+    });
+
+    document.body.appendChild(btn);
+    positionReviewButton(btn);
+  }
+
+  function positionReviewButton(btn) {
+    var textarea = findTextarea();
+    if (!textarea) { btn.style.display = 'none'; return; }
+    var rect = textarea.getBoundingClientRect();
+    btn.style.display = 'flex';
+    btn.style.top = Math.max(4, rect.top - 50) + 'px';
+    btn.style.right = Math.max(4, window.innerWidth - rect.right) + 'px';
+    btn.style.left = '';
+    btn.style.bottom = '';
+  }
+
+  function removeReviewButton() {
+    var btn = document.getElementById('pps-review-btn');
+    if (btn) btn.remove();
   }
 
   // ── Send Button Blocking ──
@@ -120,22 +263,22 @@
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.id = 'pps-send-overlay';
-      overlay.innerHTML = ICONS ? ICONS.lock : '';
+      overlay.innerHTML = ICONS.lock;
+      overlay.title = 'Sensitive data detected — review before sending';
       overlay.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         var reviewBtn = document.getElementById('pps-review-btn');
         if (reviewBtn) {
-          reviewBtn.style.transform = 'scale(1.15)';
+          reviewBtn.style.transform = 'scale(1.1)';
           setTimeout(function () { reviewBtn.style.transform = ''; }, 200);
         }
       });
       document.body.appendChild(overlay);
     }
-
     positionOverlay(overlay);
 
-    var textarea = document.querySelector(TEXTAREA_SEL);
+    var textarea = findTextarea();
     if (textarea && !textarea.__ppsKeyBlocked) {
       textarea.addEventListener('keydown', blockEnterKey, true);
       textarea.__ppsKeyBlocked = true;
@@ -144,24 +287,22 @@
 
   function positionOverlay(overlay) {
     var sendBtn = document.querySelector(SEND_BTN_SEL);
-    if (!sendBtn) {
-      overlay.style.display = 'none';
-      return;
-    }
-
+    if (!sendBtn) { overlay.style.display = 'none'; return; }
     var rect = sendBtn.getBoundingClientRect();
     overlay.style.display = 'flex';
     overlay.style.top = rect.top + 'px';
     overlay.style.left = rect.left + 'px';
     overlay.style.width = rect.width + 'px';
     overlay.style.height = rect.height + 'px';
+    overlay.style.right = '';
+    overlay.style.bottom = '';
   }
 
   function unblockSendButton() {
     var overlay = document.getElementById('pps-send-overlay');
     if (overlay) overlay.remove();
 
-    var textarea = document.querySelector(TEXTAREA_SEL);
+    var textarea = findTextarea();
     if (textarea && textarea.__ppsKeyBlocked) {
       textarea.removeEventListener('keydown', blockEnterKey, true);
       textarea.__ppsKeyBlocked = false;
@@ -175,48 +316,9 @@
     }
   }
 
-  // ── Floating Review Button ──
+  // ── Build Modal Shell ──
 
-  function showReviewButton() {
-    var existing = document.getElementById('pps-review-btn');
-    if (existing) existing.remove();
-
-    var btn = document.createElement('button');
-    btn.id = 'pps-review-btn';
-    btn.innerHTML = ICONS.shieldAlert + ' Review Sensitive Data';
-    btn.addEventListener('click', function () {
-      showModal();
-    });
-
-    document.body.appendChild(btn);
-    positionReviewButton(btn);
-
-    window.addEventListener('scroll', function () { positionReviewButton(btn); }, { passive: true });
-    window.addEventListener('resize', function () { positionReviewButton(btn); });
-  }
-
-  function positionReviewButton(btn) {
-    var textarea = document.querySelector(TEXTAREA_SEL);
-    if (!textarea) return;
-
-    var rect = textarea.getBoundingClientRect();
-    btn.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-    btn.style.right = (window.innerWidth - rect.right) + 'px';
-  }
-
-  function removeReviewButton() {
-    var btn = document.getElementById('pps-review-btn');
-    if (btn) btn.remove();
-  }
-
-  // ── Modal (editable + preview in one view) ──
-
-  var modalMode = 'preview'; // 'preview' or 'edit'
-
-  function showModal() {
-    closeModal();
-    modalMode = 'preview';
-
+  function buildModal(titleText, titleClass) {
     var backdrop = document.createElement('div');
     backdrop.id = 'pps-modal-backdrop';
     backdrop.addEventListener('click', function (e) {
@@ -230,23 +332,11 @@
     var header = document.createElement('div');
     header.id = 'pps-modal-header';
 
-    var titleEl = document.createElement('h3');
-    titleEl.innerHTML = ICONS.shieldAlert + ' <span>Sensitive Data Detected</span>';
-    header.appendChild(titleEl);
-
-    var headerRight = document.createElement('div');
-    headerRight.className = 'pps-modal-header-right';
-
-    // Toggle edit/preview button
-    var toggleBtn = document.createElement('button');
-    toggleBtn.id = 'pps-modal-toggle';
-    toggleBtn.className = 'pps-btn-icon';
-    toggleBtn.title = 'Edit text';
-    toggleBtn.innerHTML = ICONS.eye;
-    toggleBtn.addEventListener('click', function () {
-      toggleModalMode();
-    });
-    headerRight.appendChild(toggleBtn);
+    var titleEl = document.createElement('div');
+    titleEl.id = 'pps-modal-title';
+    titleEl.className = 'pps-modal-title ' + (titleClass || 'pps-title-info');
+    titleEl.innerHTML = (titleClass === 'pps-title-danger' ? ICONS.shieldAlert : ICONS.search) +
+      ' <span id="pps-modal-title-text">' + titleText + '</span>';
 
     var closeBtn = document.createElement('button');
     closeBtn.id = 'pps-modal-close';
@@ -254,210 +344,369 @@
     closeBtn.title = 'Close';
     closeBtn.innerHTML = ICONS.x;
     closeBtn.addEventListener('click', closeModal);
-    headerRight.appendChild(closeBtn);
 
-    header.appendChild(headerRight);
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
 
-    // Body — contains both the preview and the editor (toggled)
     var body = document.createElement('div');
     body.id = 'pps-modal-body';
 
-    // Preview pane
-    var previewDiv = document.createElement('div');
-    previewDiv.id = 'pps-modal-preview';
-    previewDiv.innerHTML = Detector.highlightHTML(lastPastedText, lastFindings);
-
-    // Editor pane (hidden initially)
-    var editorArea = document.createElement('textarea');
-    editorArea.id = 'pps-modal-editor';
-    editorArea.value = lastPastedText;
-    editorArea.style.display = 'none';
-
-    body.appendChild(previewDiv);
-    body.appendChild(editorArea);
-
-    // Summary
-    var summaryDiv = document.createElement('div');
-    summaryDiv.id = 'pps-modal-summary';
-    renderSummary(summaryDiv, lastFindings);
-
-    body.appendChild(summaryDiv);
-
-    // Actions
     var actions = document.createElement('div');
     actions.id = 'pps-modal-actions';
 
-    var redactBtn = document.createElement('button');
-    redactBtn.className = 'pps-btn pps-btn-primary';
-    redactBtn.innerHTML = ICONS.eraser + ' Redact All';
-    redactBtn.addEventListener('click', function () {
-      applyRedaction();
-    });
-
-    var sendAnywayBtn = document.createElement('button');
-    sendAnywayBtn.className = 'pps-btn pps-btn-danger';
-    sendAnywayBtn.innerHTML = ICONS.send + ' Send Anyway';
-    sendAnywayBtn.addEventListener('click', function () {
-      cleanup();
-    });
-
-    actions.appendChild(redactBtn);
-    actions.appendChild(sendAnywayBtn);
-
-    // Assemble
     modal.appendChild(header);
     modal.appendChild(body);
     modal.appendChild(actions);
     backdrop.appendChild(modal);
-    document.body.appendChild(backdrop);
 
+    return { backdrop: backdrop, modal: modal, body: body, actions: actions };
+  }
+
+  // ── Modal: Deep Scan (safe path → teleprompter) ──
+
+  function openDeepScanModal(text) {
+    closeModal();
+    state = STATE_REVIEWING;
+
+    var m = buildModal('Deep Privacy Scan', 'pps-title-info');
+    document.body.appendChild(m.backdrop);
     document.addEventListener('keydown', onModalEscape);
-  }
 
-  function toggleModalMode() {
-    var preview = document.getElementById('pps-modal-preview');
-    var editor = document.getElementById('pps-modal-editor');
-    var toggleBtn = document.getElementById('pps-modal-toggle');
-    if (!preview || !editor || !toggleBtn) return;
+    // ── Teleprompter UI ──
+    var tpWrap = document.createElement('div');
+    tpWrap.id = 'pps-tp-wrap';
 
-    if (modalMode === 'preview') {
-      // Switch to edit mode
-      modalMode = 'edit';
-      editor.value = lastPastedText;
-      preview.style.display = 'none';
-      editor.style.display = 'block';
-      editor.focus();
-      toggleBtn.innerHTML = ICONS.eye;
-      toggleBtn.title = 'Preview';
-    } else {
-      // Switch to preview — re-scan the edited text
-      modalMode = 'preview';
-      lastPastedText = editor.value;
-      var result = Detector.scan(lastPastedText);
-      lastFindings = result.findings;
+    var progressBar = document.createElement('div');
+    progressBar.id = 'pps-tp-progress';
+    var progressFill = document.createElement('div');
+    progressFill.id = 'pps-tp-progress-fill';
+    progressBar.appendChild(progressFill);
 
-      preview.innerHTML = Detector.highlightHTML(lastPastedText, lastFindings);
-      editor.style.display = 'none';
-      preview.style.display = 'block';
-      toggleBtn.innerHTML = ICONS.eye;
-      toggleBtn.title = 'Edit text';
+    var stageList = document.createElement('div');
+    stageList.id = 'pps-tp-stages';
 
-      // Update summary
-      var summaryDiv = document.getElementById('pps-modal-summary');
-      if (summaryDiv) renderSummary(summaryDiv, lastFindings);
+    TP_STAGES.forEach(function (s, i) {
+      var row = document.createElement('div');
+      row.className = 'pps-tp-row';
+      row.id = 'pps-tp-row-' + i;
+      row.innerHTML = '<span class="pps-tp-dot"></span><span class="pps-tp-label">' + s.label + '</span>';
+      stageList.appendChild(row);
+    });
 
-      // If clean now, allow sending
+    tpWrap.appendChild(progressBar);
+    tpWrap.appendChild(stageList);
+    m.body.appendChild(tpWrap);
+
+    // ── Run teleprompter, then scan ──
+    runTeleprompter(progressFill, function () {
+      var result = Detector.scan(text);
+
+      // Swap teleprompter for results
+      m.body.removeChild(tpWrap);
+
+      var titleTextEl = document.getElementById('pps-modal-title-text');
+      var titleEl = document.getElementById('pps-modal-title');
+
       if (result.safe) {
-        cleanup();
-        updateChatGPTTextarea(lastPastedText);
+        // All clear
+        if (titleTextEl) titleTextEl.textContent = 'All Clear';
+        if (titleEl) titleEl.className = 'pps-modal-title pps-title-safe';
+
+        var cleanDiv = document.createElement('div');
+        cleanDiv.id = 'pps-clean-result';
+        cleanDiv.innerHTML =
+          '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>' +
+          '<path d="m9 12 2 2 4-4"/></svg>' +
+          '<span>No sensitive data detected</span>';
+        m.body.appendChild(cleanDiv);
+
+        var doneBtn = document.createElement('button');
+        doneBtn.className = 'pps-btn pps-btn-primary';
+        doneBtn.innerHTML = ICONS.shieldCheck + ' All Clear';
+        doneBtn.addEventListener('click', function () { closeModal(); state = STATE_IDLE; });
+        m.actions.appendChild(doneBtn);
+        m.actions.style.display = 'flex';
+
+      } else {
+        // Found something
+        if (titleTextEl) titleTextEl.textContent = 'Sensitive Data Found';
+        if (titleEl) titleEl.className = 'pps-modal-title pps-title-danger';
+
+        lastFindings = result.findings;
+        totalFindings = result.findings.length;
+        state = STATE_UNSAFE;
+        blockSendButton();
+
+        showFindingsUI(m.body, m.actions, text, result.findings);
+        m.actions.style.display = 'flex';
       }
-    }
+    });
   }
 
-  function applyRedaction() {
-    // If in edit mode, grab latest text first
-    var editor = document.getElementById('pps-modal-editor');
-    if (modalMode === 'edit' && editor) {
-      lastPastedText = editor.value;
-      var result = Detector.scan(lastPastedText);
-      lastFindings = result.findings;
+  function runTeleprompter(progressFill, onComplete) {
+    var idx = 0;
+    var total = TP_STAGES.length;
+
+    function next() {
+      if (idx >= total) {
+        var lastRow = document.getElementById('pps-tp-row-' + (total - 1));
+        if (lastRow) lastRow.className = 'pps-tp-row pps-tp-done';
+        setTimeout(onComplete, 280);
+        return;
+      }
+
+      // Mark previous done
+      if (idx > 0) {
+        var prevRow = document.getElementById('pps-tp-row-' + (idx - 1));
+        if (prevRow) prevRow.className = 'pps-tp-row pps-tp-done';
+      }
+
+      // Activate current
+      var currRow = document.getElementById('pps-tp-row-' + idx);
+      if (currRow) currRow.className = 'pps-tp-row pps-tp-active';
+
+      // Progress bar
+      if (progressFill) progressFill.style.width = ((idx + 1) / total * 100) + '%';
+
+      var duration = TP_STAGES[idx].duration;
+      idx++;
+      setTimeout(next, duration);
     }
 
-    if (lastFindings.length === 0) return;
-
-    var redacted = Detector.redact(lastPastedText, lastFindings);
-    lastPastedText = redacted;
-
-    // Re-scan to confirm clean
-    var newResult = Detector.scan(redacted);
-    lastFindings = newResult.findings;
-
-    // Update both panes
-    var preview = document.getElementById('pps-modal-preview');
-    if (preview) {
-      preview.innerHTML = newResult.safe
-        ? Detector.escapeHTML(redacted)
-        : Detector.highlightHTML(redacted, newResult.findings);
-    }
-    if (editor) editor.value = redacted;
-
-    var summaryDiv = document.getElementById('pps-modal-summary');
-    if (summaryDiv) renderSummary(summaryDiv, newResult.findings);
-
-    // Switch to preview mode to show result
-    if (modalMode === 'edit') {
-      modalMode = 'preview';
-      if (preview) preview.style.display = 'block';
-      if (editor) editor.style.display = 'none';
-    }
-
-    if (newResult.safe) {
-      // Push redacted text into ChatGPT textarea and unblock
-      updateChatGPTTextarea(redacted);
-      setTimeout(function () { cleanup(); }, 600);
-    }
+    next();
   }
 
-  function updateChatGPTTextarea(text) {
-    var textarea = document.querySelector(TEXTAREA_SEL);
-    if (!textarea) return;
+  // ── Modal: Review (unsafe path — immediate findings) ──
 
-    // Clear and set new content — trigger React's input handling
-    textarea.focus();
-    textarea.textContent = text;
+  function openReviewModal(text, findings) {
+    closeModal();
+    state = STATE_REVIEWING;
 
-    // Dispatch input event so React picks up the change
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    var m = buildModal('Sensitive Data Found', 'pps-title-danger');
+    document.body.appendChild(m.backdrop);
+    document.addEventListener('keydown', onModalEscape);
+
+    showFindingsUI(m.body, m.actions, text, findings);
+    m.actions.style.display = 'flex';
   }
 
-  function renderSummary(container, findings) {
+  // ── Findings UI (shared between review modal and deep-scan modal) ──
+
+  function showFindingsUI(body, actions, text, findings) {
+    // Preview with highlighted text
+    var preview = document.createElement('div');
+    preview.id = 'pps-modal-preview';
+    preview.innerHTML = Detector.highlightHTML(text, findings);
+    body.appendChild(preview);
+
+    // Summary
+    var summary = document.createElement('div');
+    summary.id = 'pps-modal-summary';
+    renderModalSummary(summary, findings);
+    body.appendChild(summary);
+
+    // Redact All button
+    var redactBtn = document.createElement('button');
+    redactBtn.id = 'pps-modal-redact-btn';
+    redactBtn.className = 'pps-btn pps-btn-primary';
+    redactBtn.innerHTML = ICONS.paintbrush + ' Redact All';
+    redactBtn.addEventListener('click', function () {
+      startModalRedaction(text, findings, preview, summary, redactBtn, actions);
+    });
+
+    // Send Anyway button
+    var sendBtn = document.createElement('button');
+    sendBtn.id = 'pps-modal-send-btn';
+    sendBtn.className = 'pps-btn pps-btn-ghost-danger';
+    sendBtn.innerHTML = ICONS.send + ' Send Anyway';
+    sendBtn.addEventListener('click', function () {
+      updateChatTextarea(text);
+      cleanup();
+    });
+
+    actions.innerHTML = '';
+    actions.appendChild(redactBtn);
+    actions.appendChild(sendBtn);
+  }
+
+  function renderModalSummary(container, findings) {
     var counts = Detector.summarize(findings);
     var html = '';
 
     if (findings.length === 0) {
-      html = '<span class="pps-safe-text">' + ICONS.shieldCheck + ' No sensitive data detected</span>';
+      html = '<span class="pps-safe-text">' + ICONS.shieldCheck +
+        ' ' + totalFindings + ' item' + (totalFindings !== 1 ? 's' : '') + ' redacted</span>';
     } else {
-      html = 'Found: ';
+      html = '<span class="pps-summary-label">Found:</span>';
       for (var cat in counts) {
         var sev = 1;
         for (var i = 0; i < findings.length; i++) {
           if (findings[i].category === cat) { sev = findings[i].severity; break; }
         }
-        html += '<span class="pps-modal-tag sev-' + sev + '">' +
-          Detector.escapeHTML(cat) + ' &times;' + counts[cat] + '</span>';
+        var sevClass = findings.some(function (f) { return f.category === cat && f.isCustom; })
+          ? 'pps-sev-custom' : 'pps-sev-' + sev;
+        html += '<span class="pps-modal-tag ' + sevClass + '">' +
+          Detector.escapeHTML(cat) + ' \u00d7' + counts[cat] + '</span>';
       }
     }
     container.innerHTML = html;
   }
 
+  // ── Animated Redaction in Modal ──
+
+  function startModalRedaction(text, findings, preview, summary, redactBtn, actions) {
+    if (isRedacting) return;
+    isRedacting = true;
+
+    redactBtn.disabled = true;
+    redactBtn.classList.add('pps-redacting');
+    redactBtn.innerHTML = ICONS.paintbrush + ' Redacting...';
+
+    // Remove "Send Anyway"
+    var sendBtn = document.getElementById('pps-modal-send-btn');
+    if (sendBtn) sendBtn.remove();
+
+    var sorted = findings.slice().sort(function (a, b) { return b.start - a.start; });
+    var step = 0;
+    var delay = Math.max(80, Math.min(260, 1200 / sorted.length));
+
+    function redactStep() {
+      if (step >= sorted.length) {
+        finishModalRedaction(text, preview, summary, redactBtn, actions);
+        return;
+      }
+
+      var f = sorted[step];
+      var label = '[REDACTED_' + f.name.toUpperCase() + ']';
+      text = text.slice(0, f.start) + label + text.slice(f.end);
+
+      var tempResult = Detector.scan(text);
+      var html;
+      if (tempResult.findings.length > 0) {
+        html = Detector.highlightHTML(text, tempResult.findings);
+        html = html.replace(
+          /(\[REDACTED_[A-Z_]+\])(?!<\/mark>)/g,
+          '<mark class="pps-highlight pps-redacted pps-redacted-fresh">$1</mark>'
+        );
+      } else {
+        html = Detector.highlightRedactedHTML(text);
+      }
+      preview.innerHTML = html;
+      renderModalSummary(summary, tempResult.findings);
+
+      step++;
+      setTimeout(redactStep, delay);
+    }
+
+    setTimeout(redactStep, 180);
+  }
+
+  function finishModalRedaction(text, preview, summary, redactBtn, actions) {
+    isRedacting = false;
+    lastPastedText = text;
+
+    var result = Detector.scan(text);
+    lastFindings = result.findings;
+
+    preview.innerHTML = Detector.highlightRedactedHTML(text);
+    renderModalSummary(summary, result.findings);
+
+    redactBtn.classList.remove('pps-redacting');
+    redactBtn.className = 'pps-btn pps-btn-success';
+    redactBtn.disabled = true;
+    redactBtn.innerHTML = ICONS.shieldCheck + ' ' +
+      totalFindings + ' item' + (totalFindings !== 1 ? 's' : '') + ' redacted';
+
+    // Add Done button
+    var doneBtn = document.createElement('button');
+    doneBtn.className = 'pps-btn pps-btn-primary';
+    doneBtn.innerHTML = ICONS.shieldCheck + ' Done! Paste Redacted';
+    doneBtn.addEventListener('click', function () {
+      updateChatTextarea(text);
+      incrementStats(totalFindings);
+      cleanup();
+    });
+    actions.appendChild(doneBtn);
+
+    // Update textarea and unblock send
+    updateChatTextarea(text);
+    unblockSendButton();
+    removeReviewButton();
+
+    var ta = findTextarea();
+    if (ta) {
+      ta.classList.remove('pps-unsafe');
+      ta.classList.add('pps-safe');
+      setTimeout(function () { ta.classList.remove('pps-safe'); }, 2000);
+    }
+
+    state = STATE_IDLE;
+
+    // Update modal header
+    var titleEl = document.getElementById('pps-modal-title');
+    var titleText = document.getElementById('pps-modal-title-text');
+    if (titleEl) titleEl.className = 'pps-modal-title pps-title-safe';
+    if (titleText) titleText.textContent = 'Redacted — Ready to Send';
+  }
+
+  // ── Update chat textarea ──
+
+  function updateChatTextarea(text) {
+    var textarea = findTextarea();
+    if (!textarea) return;
+    textarea.focus();
+    if (textarea.tagName === 'TEXTAREA') {
+      textarea.value = text;
+    } else {
+      // contenteditable
+      textarea.textContent = text;
+    }
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+  }
+
+  // ── Stats ──
+
+  function incrementStats(count) {
+    if (!count) return;
+    try {
+      chrome.storage.local.get({ pps_total_redacted: 0 }, function (data) {
+        chrome.storage.local.set({ pps_total_redacted: (data.pps_total_redacted || 0) + count });
+      });
+    } catch (e) { /* storage not available in this context */ }
+  }
+
+  // ── Modal lifecycle ──
+
   function closeModal() {
     var backdrop = document.getElementById('pps-modal-backdrop');
     if (backdrop) backdrop.remove();
     document.removeEventListener('keydown', onModalEscape);
+    isRedacting = false;
   }
 
   function onModalEscape(e) {
     if (e.key === 'Escape') closeModal();
   }
 
-  // ── Full Cleanup ──
-
   function cleanup() {
     closeModal();
     unblockSendButton();
     removeReviewButton();
+    removeScanIcon();
 
-    var textarea = document.querySelector(TEXTAREA_SEL);
-    if (textarea) {
-      textarea.classList.remove('pps-safe', 'pps-unsafe');
-    }
+    var textarea = findTextarea();
+    if (textarea) textarea.classList.remove('pps-safe', 'pps-unsafe');
 
     state = STATE_IDLE;
     lastFindings = [];
     lastPastedText = '';
+    isRedacting = false;
+    totalFindings = 0;
   }
 
-  // ── Start ──
+  // ── Bootstrap ──
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

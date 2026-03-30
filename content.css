@@ -1,76 +1,108 @@
-/* Prompt Privacy Shield — Content Script Styles */
-/* Light/dark mode using prefers-color-scheme and ChatGPT's own theme */
+/* Prompt Privacy Shield — Content Script Styles (macOS-inspired) */
 
-/* ── CSS Custom Properties (dark default, ChatGPT is dark by default) ── */
+/* ── CSS custom properties ── */
+/* Default: dark (most AI chat UIs are dark by default) */
 
 :root {
-  --pps-bg: #1a1a1a;
-  --pps-bg-elevated: #262626;
-  --pps-bg-input: #2a2a2a;
-  --pps-text: #e5e5e5;
-  --pps-text-secondary: #a3a3a3;
-  --pps-border: #333;
-  --pps-danger: #ef4444;
-  --pps-danger-subtle: rgba(239, 68, 68, 0.1);
-  --pps-success: #22c55e;
-  --pps-success-subtle: rgba(34, 197, 94, 0.1);
-  --pps-accent: #3b82f6;
+  --pps-bg: #1c1c1e;
+  --pps-surface: #2c2c2e;
+  --pps-surface2: #3a3a3c;
+  --pps-text: #f2f2f7;
+  --pps-text2: #8e8e93;
+  --pps-sep: rgba(84, 84, 88, 0.55);
+  --pps-accent: #0a84ff;
+  --pps-danger: #ff453a;
+  --pps-danger-subtle: rgba(255, 69, 58, 0.1);
+  --pps-success: #30d158;
+  --pps-success-subtle: rgba(48, 209, 88, 0.1);
+  --pps-warning: #ff9f0a;
+  --pps-custom: #bf87ff;
+  --pps-custom-subtle: rgba(191, 135, 255, 0.1);
   --pps-backdrop: rgba(0, 0, 0, 0.6);
-  --pps-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  --pps-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35);
+  --pps-radius: 14px;
 }
 
-/* Light mode overrides — triggered by ChatGPT's light theme class or OS preference */
+/* Light mode: triggered by OS preference */
+@media (prefers-color-scheme: light) {
+  :root {
+    --pps-bg: #ffffff;
+    --pps-surface: #f2f2f7;
+    --pps-surface2: #e5e5ea;
+    --pps-text: #1c1c1e;
+    --pps-text2: #8e8e93;
+    --pps-sep: rgba(60, 60, 67, 0.18);
+    --pps-accent: #007aff;
+    --pps-danger: #ff3b30;
+    --pps-danger-subtle: rgba(255, 59, 48, 0.08);
+    --pps-success: #34c759;
+    --pps-success-subtle: rgba(52, 199, 89, 0.08);
+    --pps-warning: #ff9500;
+    --pps-custom: #9c59d1;
+    --pps-custom-subtle: rgba(156, 89, 209, 0.08);
+    --pps-backdrop: rgba(0, 0, 0, 0.35);
+    --pps-shadow: 0 16px 48px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Site dark-mode class overrides */
+html.dark :root,
+html[data-theme="dark"] :root,
+[data-color-scheme="dark"] :root {
+  --pps-bg: #1c1c1e;
+  --pps-surface: #2c2c2e;
+  --pps-surface2: #3a3a3c;
+  --pps-text: #f2f2f7;
+  --pps-text2: #8e8e93;
+  --pps-sep: rgba(84, 84, 88, 0.55);
+  --pps-accent: #0a84ff;
+  --pps-danger: #ff453a;
+  --pps-danger-subtle: rgba(255, 69, 58, 0.1);
+  --pps-success: #30d158;
+  --pps-success-subtle: rgba(48, 209, 88, 0.1);
+  --pps-backdrop: rgba(0, 0, 0, 0.6);
+  --pps-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* Site light-mode class overrides */
 html.light :root,
 html[data-theme="light"] :root,
 body.light :root {
   --pps-bg: #ffffff;
-  --pps-bg-elevated: #f5f5f5;
-  --pps-bg-input: #fafafa;
-  --pps-text: #171717;
-  --pps-text-secondary: #737373;
-  --pps-border: #e5e5e5;
-  --pps-backdrop: rgba(0, 0, 0, 0.3);
-  --pps-shadow: 0 24px 48px rgba(0, 0, 0, 0.15);
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --pps-bg: #ffffff;
-    --pps-bg-elevated: #f5f5f5;
-    --pps-bg-input: #fafafa;
-    --pps-text: #171717;
-    --pps-text-secondary: #737373;
-    --pps-border: #e5e5e5;
-    --pps-backdrop: rgba(0, 0, 0, 0.3);
-    --pps-shadow: 0 24px 48px rgba(0, 0, 0, 0.15);
-  }
-
-  /* Re-apply dark if ChatGPT has dark class (overrides OS) */
-  html.dark :root,
-  html[data-theme="dark"] :root {
-    --pps-bg: #1a1a1a;
-    --pps-bg-elevated: #262626;
-    --pps-bg-input: #2a2a2a;
-    --pps-text: #e5e5e5;
-    --pps-text-secondary: #a3a3a3;
-    --pps-border: #333;
-    --pps-backdrop: rgba(0, 0, 0, 0.6);
-    --pps-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-  }
+  --pps-surface: #f2f2f7;
+  --pps-surface2: #e5e5ea;
+  --pps-text: #1c1c1e;
+  --pps-text2: #8e8e93;
+  --pps-sep: rgba(60, 60, 67, 0.18);
+  --pps-accent: #007aff;
+  --pps-danger: #ff3b30;
+  --pps-danger-subtle: rgba(255, 59, 48, 0.08);
+  --pps-success: #34c759;
+  --pps-success-subtle: rgba(52, 199, 89, 0.08);
+  --pps-backdrop: rgba(0, 0, 0, 0.35);
+  --pps-shadow: 0 16px 48px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 /* ── Textarea border indicators ── */
 
-#prompt-textarea.pps-safe {
-  outline: 2px solid var(--pps-success) !important;
-  outline-offset: -2px;
-  transition: outline-color 0.3s ease;
+/* ── Textarea border indicators (macOS Focus Ring Style) ── */
+
+#prompt-textarea.pps-safe,
+div.pps-safe[contenteditable] {
+  outline: none !important;
+  /* Inner crisp border + outer soft glow */
+  box-shadow: inset 0 0 0 4px var(--pps-success), 0 0 0 4px var(--pps-success-subtle) !important;
+  border-radius: inherit;
+  /* Inherits the chatbox's existing curves */
+  transition: box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-#prompt-textarea.pps-unsafe {
-  outline: 2px solid var(--pps-danger) !important;
-  outline-offset: -2px;
-  transition: outline-color 0.3s ease;
+#prompt-textarea.pps-unsafe,
+div.pps-unsafe[contenteditable] {
+  outline: none !important;
+  box-shadow: inset 0 0 0 1px var(--pps-danger), 0 0 0 4px var(--pps-danger-subtle) !important;
+  border-radius: inherit;
+  transition: box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 /* ── Send button overlay ── */
@@ -85,46 +117,109 @@ body.light :root {
   align-items: center;
   justify-content: center;
   color: var(--pps-danger);
+  transition: background 0.2s;
+}
+
+#pps-send-overlay:hover {
+  background: rgba(255, 69, 58, 0.18);
 }
 
 #pps-send-overlay svg {
   pointer-events: none;
 }
 
-/* ── Floating review button ── */
+/* ── Floating review button (unsafe flow) ── */
+/* Note: top/right are set entirely by JS — no CSS transform positioning */
 
 #pps-review-btn {
   position: fixed;
   z-index: 2147483646;
   background: var(--pps-danger);
   color: #fff;
-  padding: 8px 18px;
+  padding: 8px 16px;
   border-radius: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   border: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  animation: pps-pulse 2s ease-in-out infinite;
+  box-shadow: 0 4px 16px rgba(255, 69, 58, 0.35);
+  animation: pps-btn-pulse 2.5s ease-in-out infinite;
   user-select: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  white-space: nowrap;
   transition: background 0.2s;
 }
 
 #pps-review-btn:hover {
-  background: #dc2626;
+  background: var(--pps-danger);
+  filter: brightness(1.1);
 }
 
 #pps-review-btn svg {
   flex-shrink: 0;
 }
 
-@keyframes pps-pulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3); }
-  50% { transform: scale(1.04); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.5); }
+/* Pulse via box-shadow only — no transform (avoids position conflicts) */
+@keyframes pps-btn-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 4px 16px rgba(255, 69, 58, 0.35);
+  }
+
+  50% {
+    box-shadow: 0 4px 28px rgba(255, 69, 58, 0.65);
+  }
+}
+
+/* ── Scan icon (safe flow — subtle verification button) ── */
+
+#pps-scan-icon {
+  position: fixed;
+  z-index: 2147483645;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  /* background: var(--pps-success-subtle); */
+  /* border: 1.5px solid rgba(48, 209, 88, 0.35); */
+  background: #111;
+  border: 1.5px solid #111;
+  /* color: var(--pps-success); */
+  color: #e1e1e1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pps-scan-pulse 2.5s ease-in-out infinite;
+  transition: background 0.2s, border-color 0.2s, opacity 0.3s;
+}
+
+#pps-scan-icon:hover {
+  /* background: rgba(48, 209, 88, 0.2); */
+  background: #1119;
+  /* border-color: rgba(48, 209, 88, 0.6); */
+  border-color: #1118;
+}
+
+#pps-scan-icon svg {
+  pointer-events: none;
+}
+
+@keyframes pps-scan-pulse {
+
+  0%,
+  100% {
+    /* box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); */
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+
+  50% {
+    /* box-shadow: 0 0 0 6px rgba(48, 209, 88, 0.12); */
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.12);
+  }
 }
 
 /* ── Modal backdrop ── */
@@ -137,7 +232,21 @@ body.light :root {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: pps-fade-in 0.18s ease;
+}
+
+@keyframes pps-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* ── Modal card ── */
@@ -145,87 +254,223 @@ body.light :root {
 #pps-modal {
   background: var(--pps-bg);
   color: var(--pps-text);
-  border-radius: 14px;
-  max-width: 640px;
-  width: 92%;
-  max-height: 80vh;
+  border-radius: var(--pps-radius);
+  width: 580px;
+  max-width: 94vw;
+  max-height: 82vh;
   display: flex;
   flex-direction: column;
   box-shadow: var(--pps-shadow);
+  border: 1px solid var(--pps-sep);
   overflow: hidden;
-  border: 1px solid var(--pps-border);
+  animation: pps-modal-in 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
+
+@keyframes pps-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Modal header ── */
 
 #pps-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--pps-border);
+  /* border-bottom: 1px solid var(--pps-sep); */
+  flex-shrink: 0;
 }
 
-#pps-modal-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--pps-danger);
+.pps-modal-title {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.pps-modal-header-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.pps-title-danger {
+  color: var(--pps-danger);
+}
+
+.pps-title-info {
+  color: var(--pps-accent);
+}
+
+.pps-title-safe {
+  color: var(--pps-success);
 }
 
 .pps-btn-icon {
   background: none;
   border: none;
-  color: var(--pps-text-secondary);
+  color: var(--pps-text2);
   cursor: pointer;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: 8px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
 }
 
 .pps-btn-icon:hover {
   color: var(--pps-text);
-  background: var(--pps-bg-elevated);
+  background: var(--pps-surface);
 }
 
 /* ── Modal body ── */
 
 #pps-modal-body {
-  padding: 16px 20px;
+  padding: 20px;
   overflow-y: auto;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 0;
 }
 
-#pps-modal-preview {
-  line-height: 1.7;
+/* ── Teleprompter animation ── */
+
+#pps-tp-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+#pps-tp-progress {
+  height: 3px;
+  background: var(--pps-surface);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#pps-tp-progress-fill {
+  height: 100%;
+  background: var(--pps-accent);
+  border-radius: 2px;
+  transition: width 0.35s ease;
+  width: 0%;
+}
+
+#pps-tp-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pps-tp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 13px;
+  color: var(--pps-text2);
+  opacity: 0.4;
+  transition: opacity 0.25s, color 0.25s;
+}
+
+.pps-tp-row.pps-tp-active {
+  opacity: 1;
+  color: var(--pps-accent);
+}
+
+.pps-tp-row.pps-tp-done {
+  opacity: 0.65;
+  color: var(--pps-success);
+}
+
+.pps-tp-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  transition: background 0.25s;
+}
+
+.pps-tp-row.pps-tp-active .pps-tp-dot {
+  animation: pps-dot-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes pps-dot-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.5);
+    opacity: 0.7;
+  }
+}
+
+.pps-tp-row.pps-tp-done .pps-tp-dot {
+  background: var(--pps-success);
+}
+
+/* ── Clean result (after deep scan finds nothing) ── */
+
+#pps-clean-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 20px;
+  color: var(--pps-success);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: center;
+}
+
+#pps-clean-result svg {
+  width: 40px;
+  height: 40px;
+}
+
+/* ── Modal preview (text with highlights) ── */
+
+#pps-modal-preview {
+  font-size: 13px;
+  line-height: 1.75;
   white-space: pre-wrap;
   word-break: break-word;
-  min-height: 80px;
+  min-height: 120px;
+  color: var(--pps-text);
+  /* background: var(--pps-surface); */
+  border-radius: 10px;
+  padding: 14px 16px;
+  /* border: 1px solid var(--pps-sep); */
+  padding-top: 0;
 }
+
+/* ── Modal editor (textarea) ── */
 
 #pps-modal-editor {
   width: 100%;
-  min-height: 160px;
-  background: var(--pps-bg-input);
+  min-height: 140px;
+  flex: 1;
+  background: var(--pps-surface);
   color: var(--pps-text);
-  border: 1px solid var(--pps-border);
-  border-radius: 8px;
-  padding: 12px;
+  border: 1px solid var(--pps-sep);
+  border-radius: 10px;
+  padding: 14px 16px;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
   resize: vertical;
   outline: none;
   transition: border-color 0.2s;
@@ -235,32 +480,53 @@ body.light :root {
   border-color: var(--pps-accent);
 }
 
-/* ── Modal summary ── */
+/* ── Modal summary bar ── */
 
 #pps-modal-summary {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--pps-border);
-  font-size: 12px;
-  color: var(--pps-text-secondary);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--pps-text2);
+  padding-top: 4px;
+}
+
+.pps-summary-label {
+  font-size: 12px;
+  color: var(--pps-text2);
+  margin-right: 2px;
 }
 
 .pps-modal-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11.5px;
   font-weight: 500;
-  margin: 1px;
 }
 
-.pps-modal-tag.sev-1 { background: rgba(234, 179, 8, 0.12); color: #ca8a04; }
-.pps-modal-tag.sev-2 { background: rgba(249, 115, 22, 0.12); color: #ea580c; }
-.pps-modal-tag.sev-3 { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.pps-sev-1 {
+  background: rgba(255, 159, 10, 0.12);
+  color: var(--pps-warning);
+}
+
+.pps-sev-2 {
+  background: rgba(255, 149, 0, 0.12);
+  color: #ff7a00;
+}
+
+.pps-sev-3 {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--pps-danger);
+}
+
+.pps-sev-custom,
+.pps-sev-4 {
+  background: var(--pps-custom-subtle);
+  color: var(--pps-custom);
+}
 
 .pps-safe-text {
   color: var(--pps-success);
@@ -275,26 +541,34 @@ body.light :root {
   display: flex;
   gap: 10px;
   padding: 14px 20px;
-  border-top: 1px solid var(--pps-border);
+  border-top: 1px solid var(--pps-sep);
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .pps-btn {
-  padding: 8px 20px;
-  border-radius: 8px;
+  padding: 9px 20px;
+  border-radius: 10px;
   border: none;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  font-family: inherit;
-  display: flex;
+  font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: background 0.15s, opacity 0.15s;
+  gap: 7px;
+  transition: opacity 0.15s, background 0.15s;
+  white-space: nowrap;
 }
 
 .pps-btn:hover {
-  opacity: 0.9;
+  opacity: 0.88;
+}
+
+.pps-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .pps-btn-primary {
@@ -302,49 +576,168 @@ body.light :root {
   color: #fff;
 }
 
-.pps-btn-danger {
+.pps-btn-success {
+  background: var(--pps-success);
+  color: #fff;
+  pointer-events: none;
+}
+
+.pps-btn-secondary {
+  background: var(--pps-surface);
+  color: var(--pps-text);
+  border: 1px solid var(--pps-sep);
+}
+
+.pps-btn-secondary:hover {
+  background: var(--pps-surface2);
+  opacity: 1;
+}
+
+.pps-btn-ghost-danger {
   background: transparent;
   color: var(--pps-danger);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1.5px solid rgba(255, 69, 58, 0.3);
 }
 
-.pps-btn-danger:hover {
+.pps-btn-ghost-danger:hover {
   background: var(--pps-danger-subtle);
+  opacity: 1;
 }
 
-/* ── PII highlight severity colors ── */
+/* ── PII severity highlights ── */
 
 mark.pps-highlight {
-  padding: 1px 3px;
-  border-radius: 3px;
+  padding: 2px 4px;
+  border-radius: 4px;
   cursor: help;
+  font-style: normal;
 }
 
 mark.pps-severity-1 {
-  background: rgba(234, 179, 8, 0.18);
-  color: #a16207;
+  background: rgba(255, 159, 10, 0.18);
+  color: #c97a00;
 }
 
 mark.pps-severity-2 {
-  background: rgba(249, 115, 22, 0.18);
-  color: #c2410c;
+  background: rgba(255, 149, 0, 0.18);
+  color: #c06200;
 }
 
 mark.pps-severity-3 {
-  background: rgba(239, 68, 68, 0.18);
-  color: #b91c1c;
+  background: rgba(255, 69, 58, 0.18);
+  color: #c0392b;
+}
+
+mark.pps-custom {
+  background: var(--pps-custom-subtle);
+  color: var(--pps-custom);
 }
 
 /* Dark mode highlight text colors */
 @media (prefers-color-scheme: dark) {
-  mark.pps-severity-1 { color: #facc15; }
-  mark.pps-severity-2 { color: #fb923c; }
-  mark.pps-severity-3 { color: #f87171; }
+  mark.pps-severity-1 {
+    color: #ff9f0a;
+  }
+
+  mark.pps-severity-2 {
+    color: #ff8c00;
+  }
+
+  mark.pps-severity-3 {
+    color: #ff453a;
+  }
+
+  mark.pps-custom {
+    color: #bf87ff;
+  }
 }
 
 html.dark mark.pps-severity-1,
-html[data-theme="dark"] mark.pps-severity-1 { color: #facc15; }
+html[data-theme="dark"] mark.pps-severity-1 {
+  color: #ff9f0a;
+}
+
 html.dark mark.pps-severity-2,
-html[data-theme="dark"] mark.pps-severity-2 { color: #fb923c; }
+html[data-theme="dark"] mark.pps-severity-2 {
+  color: #ff8c00;
+}
+
 html.dark mark.pps-severity-3,
-html[data-theme="dark"] mark.pps-severity-3 { color: #f87171; }
+html[data-theme="dark"] mark.pps-severity-3 {
+  color: #ff453a;
+}
+
+html.dark mark.pps-custom,
+html[data-theme="dark"] mark.pps-custom {
+  color: #bf87ff;
+}
+
+/* ── Redacted marker highlights (blue) ── */
+
+mark.pps-redacted {
+  background: rgba(10, 132, 255, 0.14);
+  color: var(--pps-accent);
+  font-weight: 500;
+}
+
+mark.pps-redacted-fresh {
+  animation: pps-redact-pop 0.5s ease-out;
+}
+
+@keyframes pps-redact-pop {
+  0% {
+    background: rgba(10, 132, 255, 0.45);
+    transform: scale(1.06);
+  }
+
+  100% {
+    background: rgba(10, 132, 255, 0.14);
+    transform: scale(1);
+  }
+}
+
+/* ── Redacting button animation ── */
+
+.pps-btn.pps-redacting {
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pps-btn.pps-redacting svg {
+  animation: pps-brush-sweep 0.8s ease-in-out infinite;
+}
+
+@keyframes pps-brush-sweep {
+
+  0%,
+  100% {
+    transform: rotate(0deg) translateX(0);
+  }
+
+  25% {
+    transform: rotate(-18deg) translateX(-2px);
+  }
+
+  75% {
+    transform: rotate(18deg) translateX(2px);
+  }
+}
+
+.pps-btn.pps-redacting::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  animation: pps-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes pps-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
