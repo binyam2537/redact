@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>redact - Privacy Extension</title>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        :root {
+            --pps-bg: #1c1c1e;
+            --pps-surface: #2c2c2e;
+            --pps-surface2: #3a3a3c;
+            --pps-text: #f2f2f7;
+            --pps-text2: #8e8e93;
+            --pps-sep: rgba(84, 84, 88, 0.55);
+            --pps-accent: #0a84ff;
+            --pps-danger: #ff453a;
+            --pps-danger-subtle: rgba(255, 69, 58, 0.1);
+            --pps-success: #30d158;
+            --pps-success-subtle: rgba(48, 209, 88, 0.1);
+            --pps-warning: #ff9f0a;
+            --pps-custom: #bf87ff;
+            --pps-custom-subtle: rgba(191, 135, 255, 0.1);
+            --pps-backdrop: rgba(0, 0, 0, 0.6);
+            --pps-radius: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--pps-bg);
+            color: var(--pps-text);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1080px;
+            width: 100%;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5rem;
+            align-items: center;
+        }
+
+        .hero {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .brand-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--pps-text);
+        }
+
+        .brand-header i {
+            font-size: 2.5rem;
+            color: var(--pps-danger);
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            color: var(--pps-text2);
+            font-size: 1.25rem;
+            max-width: 90%;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.25rem;
+            border-radius: calc(var(--pps-radius) - 4px);
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .btn i {
+            font-size: 1.25rem;
+        }
+
+        .btn-primary {
+            background-color: var(--pps-text);
+            color: var(--pps-bg);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--pps-text);
+            border-color: var(--pps-sep);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--pps-surface);
+        }
+
+        .guide-card {
+            background-color: var(--pps-surface);
+            border: 1px solid var(--pps-sep);
+            border-radius: var(--pps-radius);
+            padding: 2.5rem;
+        }
+
+        .guide-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--pps-text);
+        }
+
+        .guide-header i {
+            color: var(--pps-accent);
+            font-size: 1.5rem;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            list-style: none;
+        }
+
+        .step {
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            background-color: var(--pps-surface2);
+            color: var(--pps-text);
+            min-width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            flex-shrink: 0;
+            border: 1px solid var(--pps-sep);
+        }
+
+        .step-content {
+            color: var(--pps-text2);
+            font-size: 0.95rem;
+            padding-top: 0.2rem;
+        }
+
+        strong {
+            color: var(--pps-text);
+            font-weight: 600;
+        }
+
+        code {
+            background-color: var(--pps-bg);
+            color: var(--pps-custom);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.85em;
+            border: 1px solid var(--pps-sep);
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            body {
+                height: auto;
+                min-height: 100vh;
+                overflow: visible;
+                padding: 2rem 0;
+            }
+
+            .container {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+                padding: 2rem;
+            }
+
+            h1 {
+                font-size: 3rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .actions {
+                flex-direction: column;
+            }
+            .btn {
+                justify-content: center;
+            }
+            .guide-card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="hero">
+            <div class="brand-header">
+                <i class="ph ph-shield-slash"></i>
+                <h2>redact</h2>
+            </div>
+            
+            <h1>Protect your prompts.</h1>
+            <p class="subtitle">A local-first browser extension that removes sensitive information, API keys, and PIIs from your chatbot messages before you hit send.</p>
+            
+            <div class="actions">
+                <a href="redact.crx" class="btn btn-primary">
+                    <i class="ph ph-download-simple"></i>
+                    Download .crx
+                </a>
+                <a href="https://github.com/binyam2537/redact" target="_blank" class="btn btn-secondary">
+                    <i class="ph ph-github-logo"></i>
+                    View Source
+                </a>
+            </div>
+        </div>
+
+        <div class="guide-card">
+            <div class="guide-header">
+                <i class="ph ph-plug"></i>
+                Installation Guide
+            </div>
+            
+            <ul class="steps">
+                <li class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        Download the <strong>redact.crx</strong> file using the button on the left.
+                    </div>
+                </li>
+                <li class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        Open a new tab and navigate to <code>chrome://extensions</code> in your browser URL bar.
+                    </div>
+                </li>
+                <li class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        Toggle on <strong>Developer mode</strong> in the top right corner of the extensions page.
+                    </div>
+                </li>
+                <li class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        Drag and drop the downloaded <strong>.crx</strong> file anywhere onto the extensions page to install it.
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+</body>
+</html>
